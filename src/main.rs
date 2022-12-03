@@ -2,6 +2,8 @@ mod day1pt1;
 mod day1pt2;
 mod day2pt1;
 mod day2pt2;
+mod day3pt1;
+mod day3pt2;
 
 fn main() {
     println!(
@@ -19,12 +21,20 @@ fn main() {
     println!(
         "{:?}",
         day2pt2::try_solve(include_str!("../input/day2pt1.txt"))
-    )
+    );
+    println!(
+        "{:?}",
+        day3pt1::try_solve(include_str!("../input/day3pt1.txt"))
+    );
+    println!(
+        "{:?}",
+        day3pt2::try_solve(include_str!("../input/day3pt1.txt"))
+    );
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{day1pt1, day1pt2, day2pt1, day2pt2};
+    use crate::{day1pt1, day1pt2, day2pt1, day2pt2, day3pt1, day3pt2};
 
     #[test]
     fn day1pt1_eq_example() {
@@ -48,5 +58,17 @@ mod tests {
     fn day2pt2_eq_example() {
         let input = include_str!("../example_input/day2pt1.txt");
         assert_eq!(day2pt2::try_solve(input), Some(12))
+    }
+
+    #[test]
+    fn day3pt1_eq_example() {
+        let input = include_str!("../example_input/day3pt1.txt");
+        assert_eq!(day3pt1::try_solve(input), Some(157))
+    }
+
+    #[test]
+    fn day3pt2_eq_example() {
+        let input = include_str!("../example_input/day3pt1.txt");
+        assert_eq!(day3pt2::try_solve(input), Some(70))
     }
 }
