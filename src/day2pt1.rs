@@ -37,19 +37,20 @@ pub fn score(a: Kind, b: Kind) -> u64 {
     }
 }
 
-pub fn try_solve(input: &str) -> Option<u64> {
-    let matches = input
+pub fn solve(input: &str) -> u64 {
+    let scores: Vec<u64> = input
         .lines()
         .map(|line| {
-            line.split_once(' ').and_then(|(a_str, b_str)| {
+            let parsed = line.split_once(' ').and_then(|(a_str, b_str)| {
                 let a: Kind = a_str.to_string().parse().ok()?;
                 let b: Kind = b_str.to_string().parse().ok()?;
                 Some((a, b))
-            })
+            });
+
+            parsed.expect("parse line")
         })
-        .collect::<Option<Vec<(Kind, Kind)>>>()?;
+        .map(|(a, b)| score(b, a))
+        .collect();
 
-    let scores: Vec<u64> = matches.into_iter().map(|(a, b)| score(b, a)).collect();
-
-    Some(scores.iter().sum())
+    scores.iter().sum()
 }

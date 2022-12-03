@@ -33,23 +33,19 @@ fn outcome_move(oponent: Kind, outcome: Outcome) -> Kind {
     }
 }
 
-pub fn try_solve(input: &str) -> Option<u64> {
-    let instructions = input
+pub fn solve(input: &str) -> u64 {
+    let moves = input
         .lines()
         .map(|line| {
-            line.split_once(' ').and_then(|(a_str, b_str)| {
+            let parsed = line.split_once(' ').and_then(|(a_str, b_str)| {
                 let a: Kind = a_str.to_string().parse().ok()?;
                 let b: Outcome = b_str.to_string().parse().ok()?;
                 Some((a, b))
-            })
-        })
-        .collect::<Option<Vec<(Kind, Outcome)>>>()?;
+            });
 
-    let moves = instructions
-        .into_iter()
+            parsed.expect("parse line")
+        })
         .map(|(a, b)| (a.clone(), outcome_move(a, b)));
 
-    let score = moves.map(|(a, b)| score(b, a)).sum();
-
-    Some(score)
+    moves.map(|(a, b)| score(b, a)).sum()
 }

@@ -7,8 +7,9 @@ pub fn parse_inventories(input: &str) -> impl Iterator<Item = Vec<u64>> + '_ {
     })
 }
 
-pub fn find_solution(input: &str) -> Option<u64> {
+pub fn solve(input: &str) -> u64 {
     parse_inventories(input)
         .map(|i| i.iter().sum::<u64>())
         .max()
+        .expect("find maximum")
 }
