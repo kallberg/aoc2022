@@ -1,9 +1,9 @@
 use std::collections::HashSet;
 
 pub fn left_right_sets_from_line(line: &str) -> (HashSet<u32>, HashSet<u32>) {
-    let (left, right) = line.split_once(",").expect("split section assignment");
+    let (left, right) = line.split_once(',').expect("split section assignment");
     let (left_start, left_end): (u32, u32) = left
-        .split_once("-")
+        .split_once('-')
         .map(|(left, right)| {
             (
                 left.parse().expect("parse min"),
@@ -12,7 +12,7 @@ pub fn left_right_sets_from_line(line: &str) -> (HashSet<u32>, HashSet<u32>) {
         })
         .expect("split section range");
     let (right_start, right_end): (u32, u32) = right
-        .split_once("-")
+        .split_once('-')
         .map(|(left, right)| {
             (
                 left.parse().expect("parse min"),
