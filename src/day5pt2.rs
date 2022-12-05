@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use crate::day5pt1::{crate_top_string, read_crates, read_moves};
+use crate::day5pt1::{crates_front_string, read_crates, read_moves};
 
 pub fn perform_move(
     crates: Vec<VecDeque<char>>,
@@ -46,5 +46,5 @@ pub fn solve(input: &str) -> String {
         crates = perform_move(crates, move_instruction);
     }
 
-    crate_top_string(crates)
+    crates_front_string(crates)
 }

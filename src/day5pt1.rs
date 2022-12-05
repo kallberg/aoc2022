@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, num, vec};
+use std::{collections::VecDeque, vec};
 
 pub fn read_crate_line(line: &str) -> Vec<Option<char>> {
     let char_vector: Vec<char> = line.chars().collect();
@@ -42,10 +42,8 @@ pub fn read_crates(input: &str) -> Vec<VecDeque<char>> {
         let mut crate_vector: VecDeque<char> = VecDeque::new();
 
         for crate_line in &crate_lines {
-            if let Some(value) = crate_line.get(index) {
-                if let Some(contents) = value {
-                    crate_vector.push_back(*contents);
-                }
+            if let Some(Some(value)) = crate_line.get(index) {
+                crate_vector.push_back(*value);
             }
         }
 
@@ -106,7 +104,7 @@ pub fn perform_move(
     new
 }
 
-pub fn crate_top_string(crates: Vec<VecDeque<char>>) -> String {
+pub fn crates_front_string(crates: Vec<VecDeque<char>>) -> String {
     let mut output = String::new();
 
     for crate_deque in crates {
@@ -128,5 +126,5 @@ pub fn solve(input: &str) -> String {
         crates = perform_move(crates, move_instruction);
     }
 
-    crate_top_string(crates)
+    crates_front_string(crates)
 }
