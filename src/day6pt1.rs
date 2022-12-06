@@ -6,13 +6,11 @@ pub fn solve(input: &str) -> usize {
         .collect::<Vec<char>>()
         .windows(4)
         .map(|chars| {
-            let mut set = HashSet::<char>::new();
+            let mut set: HashSet<char> = HashSet::new();
 
-            for char in chars {
+            chars.iter().for_each(|char| {
                 set.insert(*char);
-            }
-
-            println!("{}", set.len());
+            });
 
             set
         })

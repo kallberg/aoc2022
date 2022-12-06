@@ -96,12 +96,12 @@ mod tests {
     #[test]
     fn day6pt1_eq_example() {
         let input = include_str!("../example_input/day6pt1.txt");
-        assert_eq!(day6pt1::solve(input), 5)
+        assert_eq!(day6pt1::solve(input), 7)
     }
 
     #[test]
     fn day6pt2_eq_example() {
         let input = include_str!("../example_input/day6pt1.txt");
-        assert_eq!(day6pt2::solve(input), 23)
+        assert_eq!(day6pt2::solve(input), 19)
     }
 }

@@ -12,8 +12,6 @@ pub fn solve(input: &str) -> usize {
                 set.insert(*char);
             }
 
-            println!("{}", set.len());
-
             set
         })
         .enumerate()
