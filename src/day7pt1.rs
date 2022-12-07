@@ -1,63 +1,108 @@
 use std::{collections::HashMap, path::PathBuf};
 
-type FileSystem = HashMap<PathBuf, Vec<usize>>;
-type SizedFileSystem = HashMap<PathBuf, usize>;
+#[derive(Debug)]
+pub struct Listing {
+    path: PathBuf,
+    files: Vec<File>,
+    directories: Vec<PathBuf>,
+}
 
-pub fn parse_file(value: &str) -> Option<usize> {
-    let (size_str, _) = value.split_once(' ')?;
+pub type Listings = HashMap<PathBuf, Listing>;
+
+#[derive(Clone, Debug)]
+pub struct File {
+    name: String,
+    size: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct Directory {
+    path: PathBuf,
+    children: Vec<Directory>,
+    files: Vec<File>,
+}
+
+impl Directory {
+    pub fn size(&self, cache: &mut HashMap<PathBuf, usize>) -> usize {
+        if let Some(size) = cache.get(&self.path) {
+            return *size;
+        }
+
+        let mut size = 0;
+
+        size += self.files.iter().map(|file| file.size).sum::<usize>();
+
+        for child in &self.children {
+            size += child.size(cache)
+        }
+
+        size
+    }
+
+    pub fn descendants(&self) -> Vec<Directory> {
+        let mut output = vec![];
+
+        for child in &self.children {
+            output.push(child.clone());
+            let mut child_descendands = child.descendants();
+            output.append(&mut child_descendands);
+        }
+
+        output
+    }
+}
+
+pub fn parse_file(line: &str) -> Option<File> {
+    let (size_str, name) = line.split_once(' ')?;
 
     let size: usize = size_str.parse().ok()?;
 
-    Some(size)
+    Some(File {
+        name: name.to_string(),
+        size,
+    })
 }
 
-pub fn direct_size(file_system: &HashMap<PathBuf, Vec<usize>>, path: &PathBuf) -> usize {
-    file_system
-        .get(path)
-        .expect("list directory contents")
-        .iter()
-        .sum()
+pub fn parse_dir(current_path: PathBuf, line: &str) -> Option<PathBuf> {
+    let dir_str = line.strip_prefix("dir ")?;
+
+    let mut output = current_path;
+    output.push(dir_str);
+
+    Some(output)
 }
 
-pub fn sub_directories(
-    file_system: &HashMap<PathBuf, Vec<usize>>,
-    directory: &PathBuf,
-) -> Vec<PathBuf> {
-    let children = file_system
-        .keys()
-        .filter(|path| path.ancestors().any(|a| a.eq(directory)))
-        .filter(|path| !path.eq(&directory))
-        .cloned();
+pub fn listing_to_directory(listing: &Listing, listings: &Listings) -> Directory {
+    let mut children = Vec::<Directory>::new();
 
-    children.collect()
-}
-
-pub fn size_file_system(
-    file_system: &HashMap<PathBuf, Vec<usize>>,
-    directory: &PathBuf,
-    sized_file_system: &mut SizedFileSystem,
-) -> usize {
-    if let Some(size) = sized_file_system.get(directory) {
-        return *size;
+    for directory_ref in &listing.directories {
+        if let Some(directory_ref_listing) = listings.get(directory_ref) {
+            let child = listing_to_directory(directory_ref_listing, listings);
+            children.push(child)
+        }
     }
 
-    let mut size = 0;
+    let files = &listing.files;
 
-    for child in sub_directories(file_system, directory) {
-        size += size_file_system(file_system, &child, sized_file_system);
+    Directory {
+        path: listing.path.clone(),
+        children,
+        files: files.clone(),
     }
-
-    size += direct_size(file_system, directory);
-
-    sized_file_system.insert(directory.clone(), size);
-
-    size
 }
 
-pub fn parse_filesystem(input: &str) -> FileSystem {
+pub fn parse_listings(input: &str) -> Listings {
     let mut current_path: PathBuf = PathBuf::from("/");
-    let mut file_system = FileSystem::new();
-    file_system.insert(current_path.clone(), vec![]);
+    let mut listings = Listings::new();
+
+    listings.insert(
+        current_path.clone(),
+        Listing {
+            path: current_path.clone(),
+            files: vec![],
+            directories: vec![],
+        },
+    );
 
     for line in input.lines() {
         if line.starts_with('$') {
@@ -67,53 +112,69 @@ pub fn parse_filesystem(input: &str) -> FileSystem {
                 if dir.eq("..") {
                     current_path.pop();
                 } else {
-                    current_path.push(dir)
+                    current_path.push(dir);
                 }
 
-                if !file_system.contains_key(&current_path) {
-                    file_system.insert(current_path.clone(), vec![]);
+                if !listings.contains_key(&current_path) {
+                    listings.insert(
+                        current_path.clone(),
+                        Listing {
+                            path: current_path.clone(),
+                            files: vec![],
+                            directories: vec![],
+                        },
+                    );
                 }
             }
         } else if line.starts_with("dir") {
-            continue;
+            let listing = listings.get_mut(&current_path).unwrap();
+
+            let dir_path = parse_dir(current_path.clone(), line).expect("parse dir");
+
+            listing.directories.push(dir_path);
         } else {
-            let files: &mut Vec<usize> = file_system.get_mut(&current_path).unwrap();
+            let listing = listings.get_mut(&current_path).unwrap();
 
             let file =
                 parse_file(line).unwrap_or_else(|| panic!("parse file, from line: {}", line));
 
-            files.push(file);
+            listing.files.push(file);
         }
     }
 
-    file_system
+    listings
 }
 
-pub fn directory_finder(file_system: &FileSystem, size_limit: usize) -> Vec<(PathBuf, usize)> {
-    let mut cache = SizedFileSystem::new();
+pub fn directories_within_limit(size_limit: usize, root: &Directory) -> Vec<(PathBuf, usize)> {
+    let mut output = vec![];
+    let mut cache = HashMap::<PathBuf, usize>::new();
 
-    file_system
-        .keys()
-        .map(|path| {
-            (
-                path.clone(),
-                size_file_system(file_system, path, &mut cache),
-            )
-        })
-        .filter(|(_, size)| *size <= size_limit)
-        .collect()
+    let root_size = root.size(&mut cache);
+
+    if root_size <= size_limit {
+        output.push((root.path.clone(), root_size));
+    }
+
+    for descendant in root.descendants() {
+        let descendand_size = descendant.size(&mut cache);
+
+        if descendand_size <= size_limit {
+            output.push((descendant.path.clone(), descendand_size));
+        }
+    }
+
+    output
 }
 
 pub fn solve(input: &str) -> usize {
-    let file_system = parse_filesystem(input);
-
-    let directories = directory_finder(&file_system, 100000);
+    let listings = parse_listings(input);
+    let root_listing = listings.get(&PathBuf::from("/")).unwrap();
+    let root = listing_to_directory(root_listing, &listings);
 
     let mut sum = 0;
 
-    for (path, size) in directories {
-        println!("directory={}, size={}", path.to_str().unwrap(), size);
-        sum += size
+    for (_, size) in directories_within_limit(100000, &root) {
+        sum += size;
     }
 
     sum
