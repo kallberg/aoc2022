@@ -1,6 +1,6 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::collections::HashMap;
 
-use crate::day7pt1::{listing_to_directory, parse_listings, Directory};
+use crate::day7pt1::Directory;
 
 pub fn find_smallest_needed_delete(
     root: Directory,
@@ -29,9 +29,5 @@ pub fn find_smallest_needed_delete(
 }
 
 pub fn solve(input: &str) -> usize {
-    let listings = parse_listings(input);
-    let root_listing = listings.get(&PathBuf::from("/")).unwrap();
-    let root = listing_to_directory(root_listing, &listings);
-
-    find_smallest_needed_delete(root, 70000000, 30000000)
+    find_smallest_needed_delete(Directory::from(input), 70000000, 30000000)
 }

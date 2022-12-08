@@ -11,15 +11,15 @@ pub type Listings = HashMap<PathBuf, Listing>;
 
 #[derive(Clone, Debug)]
 pub struct File {
-    name: String,
-    size: usize,
+    pub name: String,
+    pub size: usize,
 }
 
 #[derive(Debug, Clone)]
 pub struct Directory {
-    path: PathBuf,
-    children: Vec<Directory>,
-    files: Vec<File>,
+    pub path: PathBuf,
+    pub children: Vec<Directory>,
+    pub files: Vec<File>,
 }
 
 impl Directory {
@@ -166,10 +166,16 @@ pub fn directories_within_limit(size_limit: usize, root: &Directory) -> Vec<(Pat
     output
 }
 
+impl From<&str> for Directory {
+    fn from(input: &str) -> Self {
+        let listings = parse_listings(input);
+        let root_listing = listings.get(&PathBuf::from("/")).unwrap();
+        listing_to_directory(root_listing, &listings)
+    }
+}
+
 pub fn solve(input: &str) -> usize {
-    let listings = parse_listings(input);
-    let root_listing = listings.get(&PathBuf::from("/")).unwrap();
-    let root = listing_to_directory(root_listing, &listings);
+    let root = Directory::from(input);
 
     let mut sum = 0;
 
