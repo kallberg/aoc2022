@@ -1,12 +1,12 @@
-use std::{collections::HashMap, ops::Deref};
+use std::ops::Deref;
 
 pub type Coord = (usize, usize);
 
 #[derive(Debug)]
-pub struct HeightMap(HashMap<Coord, usize>);
+pub struct HeightMap(Vec<Vec<usize>>);
 
 impl Deref for HeightMap {
-    type Target = HashMap<Coord, usize>;
+    type Target = Vec<Vec<usize>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -15,14 +15,17 @@ impl Deref for HeightMap {
 
 impl From<&str> for HeightMap {
     fn from(input: &str) -> Self {
-        let mut data = HashMap::<Coord, usize>::new();
+        let mut data = vec![];
 
-        for (y, line) in input.lines().enumerate() {
-            for (x, char) in line.chars().enumerate() {
+        for line in input.lines() {
+            let mut row = vec![];
+            for char in line.chars() {
                 let h: usize = char.to_string().parse().expect("parse height");
 
-                data.insert((x, y), h);
+                row.push(h);
             }
+
+            data.push(row);
         }
 
         Self(data)
@@ -33,8 +36,8 @@ impl HeightMap {
     pub fn size(&self) -> Coord {
         let data = &self.0;
 
-        let height: usize = *data.keys().map(|(_, y)| y).max().expect("height");
-        let width: usize = *data.keys().map(|(x, _)| x).max().expect("width");
+        let height: usize = data.len();
+        let width: usize = data.get(0).expect("one row to check width with").len();
 
         (width, height)
     }
@@ -42,8 +45,8 @@ impl HeightMap {
     pub fn trees(&self, coords: Vec<Coord>) -> Vec<usize> {
         let mut output = vec![];
 
-        for coord in coords {
-            let tree = *self.0.get(&coord).expect("tree at coord");
+        for (x, y) in coords {
+            let tree = self.0[y][x];
             output.push(tree);
         }
 
@@ -66,11 +69,11 @@ pub fn tree_is_visible(scan: &HeightMap, tree: Coord) -> bool {
     let (width, height) = scan.size();
 
     let from_left = (0..tree_x).zip(std::iter::repeat(tree_y));
-    let from_right = ((tree_x + 1)..=width).zip(std::iter::repeat(tree_y));
+    let from_right = ((tree_x + 1)..width).zip(std::iter::repeat(tree_y));
     let from_top = (std::iter::repeat(tree_x)).zip(0..tree_y);
-    let from_bottom = (std::iter::repeat(tree_x)).zip((tree_y + 1)..=height);
+    let from_bottom = (std::iter::repeat(tree_x)).zip((tree_y + 1)..height);
 
-    let tree_height = *scan.get(&tree).expect("tree");
+    let tree_height = scan[tree_y][tree_x];
 
     visible_compared_to(tree_height, scan.trees(from_left.collect()))
         || visible_compared_to(tree_height, scan.trees(from_right.collect()))
@@ -82,10 +85,13 @@ pub fn solve(input: &str) -> usize {
     let scan = HeightMap::from(input);
 
     let mut visible: usize = 0;
+    let size = scan.size();
 
-    for coord in scan.keys() {
-        if tree_is_visible(&scan, *coord) {
-            visible += 1
+    for x in 0..size.0 {
+        for y in 0..size.1 {
+            if tree_is_visible(&scan, (x, y)) {
+                visible += 1
+            }
         }
     }
 

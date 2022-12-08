@@ -3,21 +3,21 @@ use crate::day8pt1::{Coord, HeightMap};
 pub fn scenic_score(scan: &HeightMap, tree: Coord) -> usize {
     let (tree_x, tree_y) = tree;
     let (width, height) = scan.size();
-    let tree_height = *scan.get(&tree).expect("tree");
+    let tree_height = scan[tree_y][tree_x];
 
     if tree_x.eq(&0) || tree_y.eq(&0) {
         return 0;
     }
 
     let from_left = ((0..tree_x).rev()).zip(std::iter::repeat(tree_y)).collect();
-    let from_right = ((tree_x + 1)..=width)
+    let from_right = ((tree_x + 1)..width)
         .zip(std::iter::repeat(tree_y))
         .collect();
     let from_top = (std::iter::repeat(tree_x))
         .zip((0..(tree_y)).rev())
         .collect();
     let from_bottom = (std::iter::repeat(tree_x))
-        .zip((tree_y + 1)..=height)
+        .zip((tree_y + 1)..height)
         .collect();
 
     let mut scores = vec![];
@@ -70,11 +70,15 @@ pub fn solve(input: &str) -> usize {
 
     let mut max = 0;
 
-    for coord in scan.keys() {
-        let score = scenic_score(&scan, *coord);
+    let size = scan.size();
 
-        if score > max {
-            max = score;
+    for x in 0..size.0 {
+        for y in 0..size.1 {
+            let score = scenic_score(&scan, (x, y));
+
+            if score > max {
+                max = score;
+            }
         }
     }
 
