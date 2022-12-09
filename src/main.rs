@@ -166,8 +166,8 @@ mod tests {
 
     #[test]
     fn day9pt2_eq_example() {
-        let input = include_str!("../example_input/day9pt1.txt");
+        let input = include_str!("../example_input/day9pt2.txt");
 
-        assert_eq!(day9pt2::solve(input), 0);
+        assert_eq!(day9pt2::solve(input), 36);
     }
 }

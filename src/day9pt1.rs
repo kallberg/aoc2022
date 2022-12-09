@@ -1,4 +1,4 @@
-use std::{fmt::Display, collections::HashSet};
+use std::{collections::HashSet, iter::repeat};
 
 #[derive(Default, PartialEq, Eq, Hash, Clone)]
 pub struct Position {
@@ -6,22 +6,55 @@ pub struct Position {
     pub y: i64,
 }
 
-#[derive(Default)]
-pub struct BoundingBox {
-    lower: Position,
-    upper: Position,
+impl Position {
+    fn move_direction(&mut self, direction: &Direction) {
+        match direction {
+            Direction::U => self.y -= 1,
+            Direction::R => self.x += 1,
+            Direction::D => self.y += 1,
+            Direction::L => self.x -= 1,
+        }
+    }
+
+    fn follow(&mut self, head: &Position) {
+        let dx = head.x - self.x;
+        let dy = head.y - self.y;
+
+        if dx.abs() >= 2 {
+            self.x = if dx > 0 { head.x - 1 } else { head.x + 1 };
+            self.y = head.y;
+            return;
+        }
+
+        if dy.abs() >= 2 {
+            self.y = if dy > 0 { head.y - 1 } else { head.y + 1 };
+            self.x = head.x;
+            return;
+        }
+
+        if dx == 0 && dy.abs() > 0 {
+            self.y = if dy > 0 { head.y - 1 } else { head.y + 1 };
+            return;
+        }
+
+        if dy == 0 && dx.abs() > 0 {
+            self.x = if dx > 0 { head.x - 1 } else { head.x + 1 };
+        }
+    }
 }
 
+#[derive(Default)]
+pub struct BoundingBox {
+    pub lower: Position,
+    pub upper: Position,
+}
+
+#[derive(Clone)]
 pub enum Direction {
     U,
     R,
     D,
     L,
-}
-
-pub struct Move {
-    pub direction: Direction,
-    pub distance: i64,
 }
 
 impl From<&str> for Direction {
@@ -36,151 +69,84 @@ impl From<&str> for Direction {
     }
 }
 
-impl From<&str> for Move {
-    fn from(value: &str) -> Self {
-        let (dir_str, distance_str) = value.split_once(' ').expect("parse move");
-
-        Move {
-            direction: Direction::from(dir_str),
-            distance: distance_str.parse().expect("parse distance"),
-        }
-    }
-}
-
 #[derive(Default)]
 pub struct RopeSimulation {
-    pub head: Position,
-    pub tail: Position,
+    pub parts: Vec<Position>,
     pub bounding_box: BoundingBox,
-    pub tail_markers: HashSet<Position>
+    pub tail_markers: HashSet<Position>,
 }
 
 impl RopeSimulation {
-    pub fn tail_correction(&mut self) {
-        let delta_x = self.head.x - self.tail.x;
-        let delta_y = self.head.y - self.tail.y;
-
-        match (delta_x, delta_y) {
-            (-2, _) => {
-                self.tail.x -= 1;
-                self.tail.y = self.head.y
-            },
-            (2, _) => {
-                self.tail.x += 1;
-                self.tail.y = self.head.y
-            },
-            (_, -2) => {
-                self.tail.y -= 1;
-                self.tail.x = self.head.x;
-            },
-            (_, 2) => {
-                self.tail.y += 1;
-                self.tail.x = self.head.x;
-            },
-            (1, 1) => {},
-            (1, -1) => {},
-            (-1, 1) => {},
-            (-1, -1) => {},
-            (0, 1) => {},
-            (1, 0) => {},
-            (0, 0) => {},
-            (0, -1) => {},
-            (-1, 0) => {},
-            value => 
-                {
-                    println!("hmm {:?}", value);
-                    panic!("invalid tail state")
-                }
-        }
-    }
-
-    pub fn tail_aligned(&self) -> bool {
-        self.head.x == self.tail.x || self.head.y == self.tail.y
-    }
-
     pub fn mark_tail(&mut self) {
-        self.tail_markers.insert(self.tail.clone());
+        self.tail_markers
+            .insert(self.parts.last().expect("last tail part").clone());
     }
 
-    pub fn perform_move(&mut self, mut instruction: Move) {
-        if instruction.distance == 0 {
-            return;
+    pub fn perform_move(&mut self, instruction: Direction) {
+        self.parts[0].move_direction(&instruction);
+        let head = self.parts[0].clone();
+        let mut cursor = self.parts[0].clone();
+
+        for part in self.parts.iter_mut().skip(1) {
+            part.follow(&cursor);
+            cursor = part.clone();
         }
 
-        match instruction.direction {
-            Direction::U => self.head.y -= 1,
-            Direction::R => self.head.x += 1,
-            Direction::D => self.head.y += 1,
-            Direction::L => self.head.x -= 1,
-        }
-
-        self.tail_correction();
         self.mark_tail();
-
-        self.bounding_box.lower.x = self.bounding_box.lower.x.min(self.head.x);
-        self.bounding_box.lower.y = self.bounding_box.lower.x.min(self.head.y);
-        self.bounding_box.upper.x = self.bounding_box.upper.x.max(self.head.x);
-        self.bounding_box.upper.y = self.bounding_box.upper.x.max(self.head.y);
-
-        if instruction.distance > 1 {
-            instruction.distance -= 1;
-            self.perform_move(instruction)
-        }
+        self.bounding_box.lower.x = self.bounding_box.lower.x.min(head.x);
+        self.bounding_box.lower.y = self.bounding_box.lower.x.min(head.y);
+        self.bounding_box.upper.x = self.bounding_box.upper.x.max(head.x);
+        self.bounding_box.upper.y = self.bounding_box.upper.x.max(head.y);
     }
 }
 
-impl Display for RopeSimulation {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for y in self.bounding_box.lower.y ..= self.bounding_box.upper.y {
-            for x in self.bounding_box.lower.x ..= self.bounding_box.upper.y {
-                if self.head.x == x && self.head.y == y {
-                    write!(f, "H")?;
-                } else if self.tail.x == x && self.tail.y == y {
-                    write!(f, "T")?;
-                } else {
-                    write!(f, ".")?;
-                }
-            }
-            writeln!(f)?;
-        }
-
-        Ok(())
-    }
-}
-
-pub fn display_area(sim: &RopeSimulation, bounding_box: BoundingBox) {
+pub fn display_area(sim: &RopeSimulation, bounding_box: &BoundingBox) {
     for y in bounding_box.lower.y..=bounding_box.upper.y {
         for x in bounding_box.lower.x..=bounding_box.upper.x {
-            let point = Position {x,y};
-
-            if sim.head.eq(&point) {
-                print!("H");
-            } else if sim.tail.eq(&point) {
-                print!("T");
-            } else if sim.tail_markers.contains(&point) {
-                print!("#");
-            }
-            else {
-                print!(".");
-            } 
+            let point = Position { x, y };
+            print!(
+                "{}",
+                sim.parts
+                    .iter()
+                    .enumerate()
+                    .find(|(_, part)| part.eq(&&point))
+                    .map(|(index, _)| match index {
+                        0 => "H".to_string(),
+                        1 => (if sim.parts.len() > 2 { "1" } else { "T" }).to_string(),
+                        i => format!("{}", i),
+                    })
+                    .unwrap_or(".".to_string())
+            );
         }
-        println!()
+        println!();
     }
+}
+
+pub fn parse_directions(input: &str) -> Vec<Direction> {
+    let mut output = vec![];
+
+    for line in input.lines() {
+        let (dir_str, count_str) = line.split_once(' ').unwrap();
+        let dir = Direction::from(dir_str);
+        let count: usize = count_str.parse().unwrap();
+
+        let mut moves: Vec<Direction> = repeat(dir).take(count).collect();
+        output.append(&mut moves)
+    }
+
+    output
 }
 
 pub fn solve(input: &str) -> usize {
-    let moves: Vec<Move> = input.lines().map(Move::from).collect();
+    let moves: Vec<Direction> = parse_directions(input);
 
     let mut sim = RopeSimulation::default();
+    sim.parts
+        .append(&mut repeat(Position::default()).take(2).collect());
     sim.mark_tail();
-    
-    display_area(&sim, BoundingBox {  lower: Position { x: -5, y: -5 }, upper: Position { x: 5, y: 5 } });
-    println!();
 
     for instruction in moves {
         sim.perform_move(instruction);
-        display_area(&sim, BoundingBox {  lower: Position { x: -5, y: -5 }, upper: Position { x: 5, y: 5 } });
-        println!();
     }
 
     sim.tail_markers.len()
