@@ -14,6 +14,8 @@ mod day7pt1;
 mod day7pt2;
 mod day8pt1;
 mod day8pt2;
+mod day9pt1;
+mod day9pt2;
 
 mod extra;
 
@@ -34,6 +36,8 @@ fn main() {
     println!("{}", day7pt2::solve(include_str!("../input/day7pt1.txt")));
     println!("{}", day8pt1::solve(include_str!("../input/day8pt1.txt")));
     println!("{}", day8pt2::solve(include_str!("../input/day8pt1.txt")));
+    println!("{}", day9pt1::solve(include_str!("../input/day9pt1.txt")));
+    println!("{}", day9pt2::solve(include_str!("../input/day9pt1.txt")));
 }
 
 #[cfg(test)]
@@ -45,6 +49,7 @@ mod tests {
         day7pt2, day8pt1,
         day8pt1::HeightMap,
         day8pt2::{self, scenic_score},
+        day9pt1, day9pt2,
     };
 
     #[test]
@@ -151,5 +156,18 @@ mod tests {
         assert_eq!(scenic_score(&scan, (2, 1)), 4);
         assert_eq!(scenic_score(&scan, (0, 0)), 0);
         assert_eq!(day8pt2::solve(input), 8)
+    }
+
+    #[test]
+    fn day9pt1_eq_example() {
+        let input = include_str!("../example_input/day9pt1.txt");
+        assert_eq!(day9pt1::solve(input), 13);
+    }
+
+    #[test]
+    fn day9pt2_eq_example() {
+        let input = include_str!("../example_input/day9pt1.txt");
+
+        assert_eq!(day9pt2::solve(input), 0);
     }
 }
