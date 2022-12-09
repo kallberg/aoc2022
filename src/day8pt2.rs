@@ -1,8 +1,9 @@
-use crate::day8pt1::{Coord, HeightMap};
+use crate::day8pt1::{Coord, TreeGrid};
 
-pub fn scenic_score(scan: &HeightMap, tree: Coord) -> usize {
+pub fn scenic_score(scan: &TreeGrid, tree: Coord) -> usize {
     let (tree_x, tree_y) = tree;
-    let (width, height) = scan.size();
+    let width = scan.width;
+    let height = scan.height;
     let tree_height = scan[tree_y][tree_x];
 
     if tree_x.eq(&0) || tree_y.eq(&0) {
@@ -66,14 +67,15 @@ pub fn scenic_score(scan: &HeightMap, tree: Coord) -> usize {
 }
 
 pub fn solve(input: &str) -> usize {
-    let scan = HeightMap::from(input);
+    let scan = TreeGrid::from(input);
 
     let mut max = 0;
 
-    let size = scan.size();
+    let width = scan.width;
+    let height = scan.height;
 
-    for x in 0..size.0 {
-        for y in 0..size.1 {
+    for x in 0..width {
+        for y in 0..height {
             let score = scenic_score(&scan, (x, y));
 
             if score > max {

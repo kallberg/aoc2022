@@ -47,7 +47,7 @@ mod tests {
         day6pt1, day6pt2, day7pt1,
         day7pt1::Directory,
         day7pt2, day8pt1,
-        day8pt1::HeightMap,
+        day8pt1::TreeGrid,
         day8pt2::{self, scenic_score},
         day9pt1, day9pt2,
     };
@@ -152,7 +152,7 @@ mod tests {
     #[test]
     fn day8pt2_eq_example() {
         let input = include_str!("../example_input/day8pt1.txt");
-        let scan = HeightMap::from(input);
+        let scan = TreeGrid::from(input);
         assert_eq!(scenic_score(&scan, (2, 1)), 4);
         assert_eq!(scenic_score(&scan, (0, 0)), 0);
         assert_eq!(day8pt2::solve(input), 8)
