@@ -1,6 +1,5 @@
 use std::{
     fmt::Display,
-    thread,
     time::{Duration, Instant},
 };
 
@@ -82,12 +81,15 @@ fn main() {
     let days = Vec::from_iter(inputs.into_iter().zip(solvers.into_iter()).enumerate());
 
     let mut results = vec![];
-    let mut threads = vec![];
+    let mut handles = vec![];
 
     let start = Instant::now();
 
+    let mut builder = tokio::runtime::Builder::new_multi_thread();
+    let runtime = builder.build().expect("build runtime");
+
     for (index, (input, solver)) in days {
-        let work_thread = thread::spawn(move || {
+        let work_thread = runtime.spawn(async move {
             let day = (index) / 2 + 1;
             let part = (index % 2) + 1;
             let multiline = day == 10 && part == 2;
@@ -96,11 +98,11 @@ fn main() {
             (index, duration, report)
         });
 
-        threads.push(work_thread);
+        handles.push(work_thread);
     }
 
-    for thread in threads {
-        let result = thread.join().expect("thread join");
+    for handle in handles {
+        let result = runtime.block_on(handle).expect("result");
         results.push(result);
     }
 
