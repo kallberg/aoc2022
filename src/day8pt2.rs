@@ -1,72 +1,64 @@
+use std::ops::Mul;
+
 use crate::day8pt1::{Coord, TreeGrid};
 
-pub fn scenic_score(scan: &TreeGrid, tree: Coord) -> usize {
-    let (tree_x, tree_y) = tree;
-    let width = scan.width;
-    let height = scan.height;
-    let tree_height = scan[tree_y][tree_x];
-
-    if tree_x.eq(&0) || tree_y.eq(&0) {
-        return 0;
-    }
-
-    let from_left = ((0..tree_x).rev()).zip(std::iter::repeat(tree_y)).collect();
-    let from_right = ((tree_x + 1)..width)
-        .zip(std::iter::repeat(tree_y))
-        .collect();
-    let from_top = (std::iter::repeat(tree_x))
-        .zip((0..(tree_y)).rev())
-        .collect();
-    let from_bottom = (std::iter::repeat(tree_x))
-        .zip((tree_y + 1)..height)
-        .collect();
-
-    let mut scores = vec![];
-    let mut score = 0;
-
-    for tree in scan.trees(from_top) {
-        score += 1;
-        if tree_height <= tree {
-            break;
-        }
-    }
-
-    scores.push(score);
-    score = 0;
-
-    for tree in scan.trees(from_left) {
-        score += 1;
-        if tree_height <= tree {
-            break;
-        }
-    }
-
-    scores.push(score);
-    score = 0;
-
-    for tree in scan.trees(from_right) {
-        score += 1;
-        if tree_height <= tree {
-            break;
-        }
-    }
-
-    scores.push(score);
-    score = 0;
-
-    for tree in scan.trees(from_bottom) {
-        score += 1;
-        if tree_height <= tree {
-            break;
-        }
-    }
-
-    scores.push(score);
-
-    scores.iter().product()
+pub enum ViewDirection {
+    L,
+    R,
+    U,
+    D,
 }
 
-pub fn solve(input: &str) -> usize {
+impl TreeGrid {
+    pub fn view_distanec(&self, position: &Coord, direction: ViewDirection) -> usize {
+        if position.x.eq(&0)
+            || position.y.eq(&0)
+            || (position.x + 1).ge(&self.width)
+            || (position.y + 1).ge(&self.height)
+        {
+            return 0;
+        }
+
+        let check = match direction {
+            ViewDirection::L => ((0..position.x).rev())
+                .zip(std::iter::repeat(position.y))
+                .map(|(x, y)| Coord { x, y })
+                .collect(),
+            ViewDirection::R => ((position.x + 1)..self.width)
+                .zip(std::iter::repeat(position.y))
+                .map(|(x, y)| Coord { x, y })
+                .collect(),
+            ViewDirection::U => (std::iter::repeat(position.x))
+                .zip((0..(position.y)).rev())
+                .map(|(x, y)| Coord { x, y })
+                .collect(),
+            ViewDirection::D => (std::iter::repeat(position.x))
+                .zip((position.y + 1)..self.height)
+                .map(|(x, y)| Coord { x, y })
+                .collect(),
+        };
+
+        let mut score = 0;
+
+        for tree in self.trees(check) {
+            score += 1;
+            if self[position.y][position.x] <= tree {
+                break;
+            }
+        }
+
+        score
+    }
+
+    pub fn scenic_score(&self, position: &Coord) -> usize {
+        self.view_distanec(position, ViewDirection::L)
+            .mul(self.view_distanec(position, ViewDirection::R))
+            .mul(self.view_distanec(position, ViewDirection::U))
+            .mul(self.view_distanec(position, ViewDirection::D))
+    }
+}
+
+pub fn solve(input: &str) -> String {
     let scan = TreeGrid::from(input);
 
     let mut max = 0;
@@ -76,7 +68,7 @@ pub fn solve(input: &str) -> usize {
 
     for x in 0..width {
         for y in 0..height {
-            let score = scenic_score(&scan, (x, y));
+            let score = scan.scenic_score(&Coord { x, y });
 
             if score > max {
                 max = score;
@@ -84,5 +76,5 @@ pub fn solve(input: &str) -> usize {
         }
     }
 
-    max
+    max.to_string()
 }

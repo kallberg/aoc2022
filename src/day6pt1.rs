@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-pub fn solve(input: &str) -> usize {
+pub fn solve(input: &str) -> String {
     let found = input
         .chars()
         .collect::<Vec<char>>()
@@ -18,5 +18,5 @@ pub fn solve(input: &str) -> usize {
         .find(|(_, set)| set.len() == 4)
         .expect("solution");
 
-    found.0 + 4
+    (found.0 + 4).to_string()
 }

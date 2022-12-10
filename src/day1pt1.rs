@@ -7,9 +7,10 @@ pub fn parse_inventories(input: &str) -> impl Iterator<Item = Vec<u64>> + '_ {
     })
 }
 
-pub fn solve(input: &str) -> u64 {
+pub fn solve(input: &str) -> String {
     parse_inventories(input)
         .map(|i| i.iter().sum::<u64>())
         .max()
         .expect("find maximum")
+        .to_string()
 }

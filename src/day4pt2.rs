@@ -1,6 +1,6 @@
 use crate::day4pt1::left_right_sets_from_line;
 
-pub fn solve(input: &str) -> usize {
+pub fn solve(input: &str) -> String {
     input
         .lines()
         .map(|line| {
@@ -8,5 +8,6 @@ pub fn solve(input: &str) -> usize {
 
             usize::from(!left.is_disjoint(&right))
         })
-        .sum()
+        .sum::<usize>()
+        .to_string()
 }

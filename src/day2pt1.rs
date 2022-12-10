@@ -55,6 +55,11 @@ impl Match {
     }
 }
 
-pub fn solve(input: &str) -> u64 {
-    input.lines().map(Match::from).map(|m| m.score()).sum()
+pub fn solve(input: &str) -> String {
+    input
+        .lines()
+        .map(Match::from)
+        .map(|m| m.score())
+        .sum::<u64>()
+        .to_string()
 }

@@ -28,6 +28,6 @@ pub fn find_smallest_needed_delete(
     best.expect("the best")
 }
 
-pub fn solve(input: &str) -> usize {
-    find_smallest_needed_delete(Directory::from(input), 70000000, 30000000)
+pub fn solve(input: &str) -> String {
+    find_smallest_needed_delete(Directory::from(input), 70000000, 30000000).to_string()
 }

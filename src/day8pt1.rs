@@ -1,6 +1,10 @@
 use std::ops::Deref;
 
-pub type Coord = (usize, usize);
+#[derive(PartialEq, Eq, Hash, Clone)]
+pub struct Coord {
+    pub x: usize,
+    pub y: usize,
+}
 
 #[derive(Debug)]
 pub struct TreeGrid {
@@ -52,8 +56,8 @@ impl TreeGrid {
     pub fn trees(&self, coords: Vec<Coord>) -> Vec<usize> {
         let mut output = vec![];
 
-        for (x, y) in coords {
-            let tree = self.inner[y][x];
+        for coord in coords {
+            let tree = self.inner[coord.y][coord.x];
             output.push(tree);
         }
 
@@ -61,7 +65,8 @@ impl TreeGrid {
     }
 
     pub fn visible(&self, coord: Coord) -> bool {
-        let (tree_x, tree_y) = coord;
+        let tree_x = coord.x;
+        let tree_y = coord.y;
         let width = self.width;
         let height = self.height;
 
@@ -79,7 +84,7 @@ impl TreeGrid {
     }
 }
 
-pub fn solve(input: &str) -> usize {
+pub fn solve(input: &str) -> String {
     let scan = TreeGrid::from(input);
     let width = scan.width;
     let height = scan.height;
@@ -88,11 +93,11 @@ pub fn solve(input: &str) -> usize {
 
     for y in 0..width {
         for x in 0..height {
-            if scan.visible((x, y)) {
+            if scan.visible(Coord { x, y }) {
                 visible += 1;
             }
         }
     }
 
-    visible
+    visible.to_string()
 }

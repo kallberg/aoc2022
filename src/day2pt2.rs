@@ -30,7 +30,7 @@ impl Kind {
     }
 }
 
-pub fn solve(input: &str) -> u64 {
+pub fn solve(input: &str) -> String {
     input
         .lines()
         .map(Match::from)
@@ -40,5 +40,6 @@ pub fn solve(input: &str) -> u64 {
             adjusted.player_one = m.player_two.move_with_outcome(instruction);
             adjusted.score()
         })
-        .sum()
+        .sum::<u64>()
+        .to_string()
 }

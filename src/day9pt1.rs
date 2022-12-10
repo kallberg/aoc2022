@@ -179,6 +179,8 @@ pub fn parse_directions(input: &str) -> Vec<Direction> {
     output
 }
 
-pub fn solve(input: &str) -> usize {
-    RopeSimulation::new(2).perform_moves(parse_directions(input))
+pub fn solve(input: &str) -> String {
+    RopeSimulation::new(2)
+        .perform_moves(parse_directions(input))
+        .to_string()
 }

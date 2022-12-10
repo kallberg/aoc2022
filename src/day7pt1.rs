@@ -174,7 +174,7 @@ impl From<&str> for Directory {
     }
 }
 
-pub fn solve(input: &str) -> usize {
+pub fn solve(input: &str) -> String {
     let root = Directory::from(input);
 
     let mut sum = 0;
@@ -183,5 +183,5 @@ pub fn solve(input: &str) -> usize {
         sum += size;
     }
 
-    sum
+    sum.to_string()
 }

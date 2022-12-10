@@ -22,7 +22,7 @@ pub fn priority(char: &char) -> u32 {
         .expect("find item priority")
 }
 
-pub fn solve(input: &str) -> u32 {
+pub fn solve(input: &str) -> String {
     let errors = input.lines().map(|line| {
         let (l, r) = split_rucksack_line(line);
         find_error(l, r)
@@ -30,5 +30,5 @@ pub fn solve(input: &str) -> u32 {
 
     let priorities = errors.map(|error| priority(&error));
 
-    priorities.sum()
+    priorities.sum::<u32>().to_string()
 }

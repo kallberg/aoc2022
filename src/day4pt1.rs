@@ -27,7 +27,7 @@ pub fn left_right_sets_from_line(line: &str) -> (HashSet<u32>, HashSet<u32>) {
     (left, right)
 }
 
-pub fn solve(input: &str) -> usize {
+pub fn solve(input: &str) -> String {
     input
         .lines()
         .map(|line| {
@@ -35,5 +35,6 @@ pub fn solve(input: &str) -> usize {
 
             usize::from(left.is_superset(&right) || left.is_subset(&right))
         })
-        .sum()
+        .sum::<usize>()
+        .to_string()
 }

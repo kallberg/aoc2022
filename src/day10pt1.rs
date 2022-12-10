@@ -70,7 +70,7 @@ impl From<&str> for Instruction {
     }
 }
 
-pub fn solve(input: &str) -> i64 {
+pub fn solve(input: &str) -> String {
     let mut cpu = Cpu {
         cycle: 1,
         register_x: 1,
@@ -90,5 +90,5 @@ pub fn solve(input: &str) -> i64 {
         }
     }
 
-    signal_strengths.iter().sum()
+    signal_strengths.iter().sum::<i64>().to_string()
 }
