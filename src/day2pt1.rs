@@ -33,8 +33,8 @@ impl From<&str> for Match {
             .expect("split line");
 
         Self {
-            player_one: pair.0,
-            player_two: pair.1,
+            player_one: pair.1,
+            player_two: pair.0,
         }
     }
 }

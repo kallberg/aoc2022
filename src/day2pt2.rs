@@ -36,8 +36,9 @@ pub fn solve(input: &str) -> String {
         .map(Match::from)
         .map(|m| {
             let mut adjusted = m.clone();
-            let instruction = Outcome::from(&m.player_two);
-            adjusted.player_one = m.player_two.move_with_outcome(instruction);
+            let instruction = Outcome::from(&m.player_one);
+            let new_move = m.player_two.move_with_outcome(instruction);
+            adjusted.player_one = new_move;
             adjusted.score()
         })
         .sum::<u64>()
