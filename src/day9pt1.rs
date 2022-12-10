@@ -1,4 +1,4 @@
-use std::{collections::HashSet, iter::repeat};
+use std::{collections::HashSet, fmt::Display, iter::repeat};
 
 #[derive(Debug, Default, PartialEq, Eq, Hash, Clone)]
 pub struct Position {
@@ -49,7 +49,7 @@ impl Position {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct BoundingBox {
     pub lower: Position,
     pub upper: Position,
@@ -83,6 +83,18 @@ pub struct RopeSimulation {
 }
 
 impl RopeSimulation {
+    pub fn new(size: usize) -> Self {
+        let mut output = Self {
+            ..Default::default()
+        };
+
+        output
+            .parts
+            .append(&mut repeat(Position::default()).take(size).collect());
+
+        output
+    }
+
     pub fn mark_tail(&mut self) {
         self.tail_markers
             .insert(self.parts.last().expect("last tail part").clone());
@@ -104,35 +116,51 @@ impl RopeSimulation {
         self.bounding_box.upper.x = self.bounding_box.upper.x.max(head.x);
         self.bounding_box.upper.y = self.bounding_box.upper.x.max(head.y);
     }
+
+    pub fn perform_moves(&mut self, moves: Vec<Direction>) -> usize {
+        self.mark_tail();
+
+        for instruction in moves {
+            self.perform_move(instruction);
+        }
+
+        self.tail_markers.len()
+    }
 }
 
-pub fn display_area(sim: &RopeSimulation, bounding_box: &BoundingBox) {
-    for y in bounding_box.lower.y..=bounding_box.upper.y {
-        for x in bounding_box.lower.x..=bounding_box.upper.x {
-            let point = Position { x, y };
+impl Display for RopeSimulation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let bounding_box = self.bounding_box.clone();
 
-            let char = sim
-                .parts
-                .iter()
-                .enumerate()
-                .find(|(_, part)| part.eq(&&point))
-                .map(|(index, _)| match index {
-                    0 => "H".to_string(),
-                    1 => (if sim.parts.len() > 2 { "1" } else { "T" }).to_string(),
-                    i => format!("{}", i),
-                })
-                .unwrap_or_else(|| {
-                    (if sim.tail_markers.contains(&point) {
-                        "#"
-                    } else {
-                        "."
+        for y in bounding_box.lower.y..=bounding_box.upper.y {
+            for x in bounding_box.lower.x..=bounding_box.upper.x {
+                let point = Position { x, y };
+
+                let char = self
+                    .parts
+                    .iter()
+                    .enumerate()
+                    .find(|(_, part)| part.eq(&&point))
+                    .map(|(index, _)| match index {
+                        0 => "H".to_string(),
+                        1 => (if self.parts.len() > 2 { "1" } else { "T" }).to_string(),
+                        i => format!("{}", i),
                     })
-                    .to_string()
-                });
+                    .unwrap_or_else(|| {
+                        (if self.tail_markers.contains(&point) {
+                            "#"
+                        } else {
+                            "."
+                        })
+                        .to_string()
+                    });
 
-            print!("{}", char);
+                write!(f, "{}", char)?;
+            }
+            writeln!(f)?;
         }
-        println!();
+
+        Ok(())
     }
 }
 
@@ -152,16 +180,5 @@ pub fn parse_directions(input: &str) -> Vec<Direction> {
 }
 
 pub fn solve(input: &str) -> usize {
-    let moves: Vec<Direction> = parse_directions(input);
-
-    let mut sim = RopeSimulation::default();
-    sim.parts
-        .append(&mut repeat(Position::default()).take(2).collect());
-    sim.mark_tail();
-
-    for instruction in moves {
-        sim.perform_move(instruction);
-    }
-
-    sim.tail_markers.len()
+    RopeSimulation::new(2).perform_moves(parse_directions(input))
 }

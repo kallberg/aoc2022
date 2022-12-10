@@ -1,22 +1,5 @@
-use std::{io::stdin, iter::repeat};
-
-use crate::day9pt1::{
-    display_area, parse_directions, BoundingBox, Direction, Position, RopeSimulation,
-};
+use crate::day9pt1::{parse_directions, RopeSimulation};
 
 pub fn solve(input: &str) -> usize {
-    let moves: Vec<Direction> = parse_directions(input);
-
-    let mut sim = RopeSimulation::default();
-
-    sim.parts
-        .append(&mut repeat(Position::default()).take(10).collect());
-
-    sim.mark_tail();
-
-    for instruction in moves {
-        sim.perform_move(instruction);
-    }
-
-    sim.tail_markers.len()
+    RopeSimulation::new(10).perform_moves(parse_directions(input))
 }
