@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 #[derive(Clone)]
 pub enum Kind {
     Rock,
@@ -7,50 +5,56 @@ pub enum Kind {
     Scissiors,
 }
 
-impl FromStr for Kind {
-    type Err = &'static str;
+#[derive(Clone)]
+pub struct Match {
+    pub player_one: Kind,
+    pub player_two: Kind,
+}
 
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
+impl From<&str> for Kind {
+    fn from(value: &str) -> Self {
         match value {
-            "A" => Ok(Kind::Rock),
-            "B" => Ok(Kind::Paper),
-            "C" => Ok(Kind::Scissiors),
-            "X" => Ok(Kind::Rock),
-            "Y" => Ok(Kind::Paper),
-            "Z" => Ok(Kind::Scissiors),
-            _ => Err("bad instruction"),
+            "A" => Kind::Rock,
+            "B" => Kind::Paper,
+            "C" => Kind::Scissiors,
+            "X" => Kind::Rock,
+            "Y" => Kind::Paper,
+            "Z" => Kind::Scissiors,
+            _ => unreachable!(),
         }
     }
 }
 
-pub fn score(a: Kind, b: Kind) -> u64 {
-    match (a, b) {
-        (Kind::Rock, Kind::Rock) => 3 + 1,
-        (Kind::Rock, Kind::Paper) => 1,
-        (Kind::Rock, Kind::Scissiors) => 6 + 1,
-        (Kind::Paper, Kind::Rock) => 6 + 2,
-        (Kind::Paper, Kind::Paper) => 3 + 2,
-        (Kind::Paper, Kind::Scissiors) => 2,
-        (Kind::Scissiors, Kind::Rock) => 3,
-        (Kind::Scissiors, Kind::Paper) => 6 + 3,
-        (Kind::Scissiors, Kind::Scissiors) => 3 + 3,
+impl From<&str> for Match {
+    fn from(line: &str) -> Self {
+        let pair = line
+            .split_once(' ')
+            .map(|(a_str, b_str)| (Kind::from(a_str), Kind::from(b_str)))
+            .expect("split line");
+
+        Self {
+            player_one: pair.0,
+            player_two: pair.1,
+        }
+    }
+}
+
+impl Match {
+    pub fn score(&self) -> u64 {
+        match (&self.player_one, &self.player_two) {
+            (Kind::Rock, Kind::Rock) => 3 + 1,
+            (Kind::Rock, Kind::Paper) => 1,
+            (Kind::Rock, Kind::Scissiors) => 6 + 1,
+            (Kind::Paper, Kind::Rock) => 6 + 2,
+            (Kind::Paper, Kind::Paper) => 3 + 2,
+            (Kind::Paper, Kind::Scissiors) => 2,
+            (Kind::Scissiors, Kind::Rock) => 3,
+            (Kind::Scissiors, Kind::Paper) => 6 + 3,
+            (Kind::Scissiors, Kind::Scissiors) => 3 + 3,
+        }
     }
 }
 
 pub fn solve(input: &str) -> u64 {
-    let scores: Vec<u64> = input
-        .lines()
-        .map(|line| {
-            let parsed = line.split_once(' ').and_then(|(a_str, b_str)| {
-                let a: Kind = a_str.to_string().parse().ok()?;
-                let b: Kind = b_str.to_string().parse().ok()?;
-                Some((a, b))
-            });
-
-            parsed.expect("parse line")
-        })
-        .map(|(a, b)| score(b, a))
-        .collect();
-
-    scores.iter().sum()
+    input.lines().map(Match::from).map(|m| m.score()).sum()
 }

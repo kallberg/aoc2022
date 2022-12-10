@@ -1,51 +1,44 @@
-use std::str::FromStr;
+use crate::day2pt1::{Kind, Match};
 
-use crate::day2pt1::{score, Kind};
-
-enum Outcome {
+pub enum Outcome {
     Win,
     Loss,
     Draw,
 }
 
-impl FromStr for Outcome {
-    type Err = &'static str;
-
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
+impl From<&Kind> for Outcome {
+    fn from(value: &Kind) -> Self {
         match value {
-            "X" => Ok(Outcome::Loss),
-            "Y" => Ok(Outcome::Draw),
-            "Z" => Ok(Outcome::Win),
-            _ => Err("unexpected instruction"),
+            Kind::Rock => Outcome::Loss,
+            Kind::Paper => Outcome::Draw,
+            Kind::Scissiors => Outcome::Win,
         }
     }
 }
 
-fn outcome_move(oponent: Kind, outcome: Outcome) -> Kind {
-    match (oponent, outcome) {
-        (Kind::Rock, Outcome::Win) => Kind::Paper,
-        (Kind::Rock, Outcome::Loss) => Kind::Scissiors,
-        (Kind::Paper, Outcome::Win) => Kind::Scissiors,
-        (Kind::Paper, Outcome::Loss) => Kind::Rock,
-        (Kind::Scissiors, Outcome::Win) => Kind::Rock,
-        (Kind::Scissiors, Outcome::Loss) => Kind::Paper,
-        (x, Outcome::Draw) => x,
+impl Kind {
+    pub fn move_with_outcome(&self, outcome: Outcome) -> Kind {
+        match (self, outcome) {
+            (Kind::Rock, Outcome::Win) => Kind::Paper,
+            (Kind::Rock, Outcome::Loss) => Kind::Scissiors,
+            (Kind::Paper, Outcome::Win) => Kind::Scissiors,
+            (Kind::Paper, Outcome::Loss) => Kind::Rock,
+            (Kind::Scissiors, Outcome::Win) => Kind::Rock,
+            (Kind::Scissiors, Outcome::Loss) => Kind::Paper,
+            (x, Outcome::Draw) => x.clone(),
+        }
     }
 }
 
 pub fn solve(input: &str) -> u64 {
-    let moves = input
+    input
         .lines()
-        .map(|line| {
-            let parsed = line.split_once(' ').and_then(|(a_str, b_str)| {
-                let a: Kind = a_str.to_string().parse().ok()?;
-                let b: Outcome = b_str.to_string().parse().ok()?;
-                Some((a, b))
-            });
-
-            parsed.expect("parse line")
+        .map(Match::from)
+        .map(|m| {
+            let mut adjusted = m.clone();
+            let instruction = Outcome::from(&m.player_two);
+            adjusted.player_one = m.player_two.move_with_outcome(instruction);
+            adjusted.score()
         })
-        .map(|(a, b)| (a.clone(), outcome_move(a, b)));
-
-    moves.map(|(a, b)| score(b, a)).sum()
+        .sum()
 }
