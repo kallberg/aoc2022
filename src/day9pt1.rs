@@ -1,6 +1,6 @@
 use std::{collections::HashSet, iter::repeat};
 
-#[derive(Default, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, Default, PartialEq, Eq, Hash, Clone)]
 pub struct Position {
     pub x: i64,
     pub y: i64,
@@ -19,6 +19,12 @@ impl Position {
     fn follow(&mut self, head: &Position) {
         let dx = head.x - self.x;
         let dy = head.y - self.y;
+
+        if dx.abs() >= 2 && dy.abs() >= 2 {
+            self.x = if dx > 0 { head.x - 1 } else { head.x + 1 };
+            self.y = if dy > 0 { head.y - 1 } else { head.y + 1 };
+            return;
+        }
 
         if dx.abs() >= 2 {
             self.x = if dx > 0 { head.x - 1 } else { head.x + 1 };
@@ -43,7 +49,7 @@ impl Position {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct BoundingBox {
     pub lower: Position,
     pub upper: Position,
@@ -104,19 +110,27 @@ pub fn display_area(sim: &RopeSimulation, bounding_box: &BoundingBox) {
     for y in bounding_box.lower.y..=bounding_box.upper.y {
         for x in bounding_box.lower.x..=bounding_box.upper.x {
             let point = Position { x, y };
-            print!(
-                "{}",
-                sim.parts
-                    .iter()
-                    .enumerate()
-                    .find(|(_, part)| part.eq(&&point))
-                    .map(|(index, _)| match index {
-                        0 => "H".to_string(),
-                        1 => (if sim.parts.len() > 2 { "1" } else { "T" }).to_string(),
-                        i => format!("{}", i),
+
+            let char = sim
+                .parts
+                .iter()
+                .enumerate()
+                .find(|(_, part)| part.eq(&&point))
+                .map(|(index, _)| match index {
+                    0 => "H".to_string(),
+                    1 => (if sim.parts.len() > 2 { "1" } else { "T" }).to_string(),
+                    i => format!("{}", i),
+                })
+                .unwrap_or_else(|| {
+                    (if sim.tail_markers.contains(&point) {
+                        "#"
+                    } else {
+                        "."
                     })
-                    .unwrap_or(".".to_string())
-            );
+                    .to_string()
+                });
+
+            print!("{}", char);
         }
         println!();
     }
