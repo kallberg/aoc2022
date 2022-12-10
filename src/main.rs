@@ -1,5 +1,6 @@
 use std::{
     fmt::Display,
+    thread,
     time::{Duration, Instant},
 };
 
@@ -26,7 +27,7 @@ mod day9pt2;
 
 mod extra;
 
-type BoxedSolver = Box<dyn FnOnce(&str) -> String>;
+type BoxedSolver = Box<dyn Fn(&str) -> String + Send>;
 
 const PRINT_WIDTH: usize = 80;
 const TIME_PAD_WIDTH: usize = 15;
@@ -78,32 +79,75 @@ fn main() {
         include_str!("../input/day10pt1.txt"),
     ];
 
-    let days = inputs.into_iter().zip(solvers.into_iter());
-    let mut sum_duration = Duration::new(0, 0);
+    let days = Vec::from_iter(inputs.into_iter().zip(solvers.into_iter()).enumerate());
 
-    for (index, (input, solver)) in days.enumerate() {
-        let day = (index) / 2 + 1;
-        let part = (index % 2) + 1;
+    let mut results = vec![];
+    let mut threads = vec![];
 
-        let multiline = day == 10 && part == 2;
+    let start = Instant::now();
 
-        sum_duration += run(day, part, solver, input, multiline);
+    for (index, (input, solver)) in days {
+        let work_thread = thread::spawn(move || {
+            let day = (index) / 2 + 1;
+            let part = (index % 2) + 1;
+            let multiline = day == 10 && part == 2;
+            let (duration, report) = run(day, part, solver, input, multiline);
+
+            (index, duration, report)
+        });
+
+        threads.push(work_thread);
+    }
+
+    for thread in threads {
+        let result = thread.join().expect("thread join");
+        results.push(result);
+    }
+
+    let duration = start.elapsed();
+
+    let sum_duration = results.iter().map(|(_, time, _)| time).sum();
+    let mut enumerated_reports: Vec<(usize, String)> = results
+        .iter()
+        .map(|(index, _, report)| (*index, report.clone()))
+        .collect();
+
+    enumerated_reports.sort_by(|(a, _), (b, _)| a.cmp(b));
+
+    for (_, report) in enumerated_reports {
+        println!("{}", report);
     }
 
     println!();
 
-    print_with_duration(
-        PRINT_WIDTH,
-        TIME_PAD_WIDTH,
-        false,
-        "> ",
-        "-",
-        "total time",
-        sum_duration,
-    )
+    println!(
+        "{}",
+        display_with_duration(
+            PRINT_WIDTH,
+            TIME_PAD_WIDTH,
+            false,
+            "> ",
+            "-",
+            "total thread time",
+            sum_duration,
+        )
+    );
+
+    println!(
+        "{}",
+        display_with_duration(
+            PRINT_WIDTH,
+            TIME_PAD_WIDTH,
+            false,
+            "> ",
+            "-",
+            "real time",
+            duration,
+        )
+    );
 }
 
-fn print_with_duration(
+fn display_with_duration(
     target_len: usize,
     time_len: usize,
     multiline: bool,
@@ -111,10 +155,11 @@ fn print_with_duration(
     suffix: &str,
     content: &str,
     duration: Duration,
-) {
-    print!("{}", prefix);
+) -> String {
+    let mut output = String::new();
+    output += prefix;
     if multiline {
-        println!()
+        output += "\n";
     }
     let duration_str = format!("{:?}", duration);
     let content_len = content.lines().map(|line| line.len()).max().unwrap();
@@ -123,13 +168,16 @@ fn print_with_duration(
 
     let main_pad = " ".repeat(pad_len - time_len);
     let time_pad = " ".repeat(time_len - duration_str.len());
-    println!(
+    output += format!(
         "{}{}{}{}{}",
         content, main_pad, suffix, time_pad, duration_str
-    );
+    )
+    .as_str();
+
+    output
 }
 
-fn run<F, R>(day: usize, part: usize, solver: F, input: &str, multiline: bool) -> Duration
+fn run<F, R>(day: usize, part: usize, solver: F, input: &str, multiline: bool) -> (Duration, String)
 where
     F: FnOnce(&str) -> R,
     R: Display,
@@ -138,7 +186,7 @@ where
     let solution = solver(input);
     let duration = start.elapsed();
 
-    print_with_duration(
+    let report = display_with_duration(
         80,
         15,
         multiline,
@@ -148,7 +196,7 @@ where
         duration,
     );
 
-    duration
+    (duration, report)
 }
 
 #[cfg(test)]
