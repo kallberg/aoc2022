@@ -1,4 +1,7 @@
-use std::fmt::Display;
+use std::{
+    fmt::Display,
+    time::{Duration, Instant},
+};
 
 mod day10pt1;
 mod day10pt2;
@@ -24,6 +27,9 @@ mod day9pt2;
 mod extra;
 
 type BoxedSolver = Box<dyn FnOnce(&str) -> String>;
+
+const PRINT_WIDTH: usize = 80;
+const TIME_PAD_WIDTH: usize = 15;
 
 fn main() {
     let solvers: Vec<BoxedSolver> = vec![
@@ -73,6 +79,7 @@ fn main() {
     ];
 
     let days = inputs.into_iter().zip(solvers.into_iter());
+    let mut sum_duration = Duration::new(0, 0);
 
     for (index, (input, solver)) in days.enumerate() {
         let day = (index) / 2 + 1;
@@ -80,21 +87,68 @@ fn main() {
 
         let multiline = day == 10 && part == 2;
 
-        run(day, part, solver, input, multiline);
+        sum_duration += run(day, part, solver, input, multiline);
     }
+
+    println!();
+
+    print_with_duration(
+        PRINT_WIDTH,
+        TIME_PAD_WIDTH,
+        false,
+        "> ",
+        "-",
+        "total time",
+        sum_duration,
+    )
 }
 
-fn run<F, R>(day: usize, part: usize, solver: F, input: &str, multiline: bool)
+fn print_with_duration(
+    target_len: usize,
+    time_len: usize,
+    multiline: bool,
+    prefix: &str,
+    suffix: &str,
+    content: &str,
+    duration: Duration,
+) {
+    print!("{}", prefix);
+    if multiline {
+        println!()
+    }
+    let duration_str = format!("{:?}", duration);
+    let content_len = content.lines().map(|line| line.len()).max().unwrap();
+    let pad_len =
+        target_len - if !multiline { prefix.len() } else { 0 } - content_len - suffix.len();
+
+    let main_pad = " ".repeat(pad_len - time_len);
+    let time_pad = " ".repeat(time_len - duration_str.len());
+    println!(
+        "{}{}{}{}{}",
+        content, main_pad, suffix, time_pad, duration_str
+    );
+}
+
+fn run<F, R>(day: usize, part: usize, solver: F, input: &str, multiline: bool) -> Duration
 where
     F: FnOnce(&str) -> R,
     R: Display,
 {
-    print!("day{}pt{}: ", day, part);
-    if multiline {
-        println!()
-    }
+    let start = Instant::now();
     let solution = solver(input);
-    println!("{}", solution);
+    let duration = start.elapsed();
+
+    print_with_duration(
+        80,
+        15,
+        multiline,
+        format!("day{}pt{}: ", day, part).as_str(),
+        "-",
+        format!("{}", solution).as_str(),
+        duration,
+    );
+
+    duration
 }
 
 #[cfg(test)]
