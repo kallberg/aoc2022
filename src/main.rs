@@ -47,8 +47,8 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use crate::{
-        day10pt1, day1pt1, day1pt2, day2pt1, day2pt2, day3pt1, day3pt2, day4pt1, day4pt2, day5pt1,
-        day5pt2, day6pt1, day6pt2, day7pt1,
+        day10pt1, day10pt2, day1pt1, day1pt2, day2pt1, day2pt2, day3pt1, day3pt2, day4pt1, day4pt2,
+        day5pt1, day5pt2, day6pt1, day6pt2, day7pt1,
         day7pt1::Directory,
         day7pt2, day8pt1,
         day8pt1::TreeGrid,
@@ -190,6 +190,14 @@ mod tests {
     fn day10pt2_eq_example() {
         let input = include_str!("../example_input/day10pt1.txt");
 
-        assert_eq!(day10pt1::solve(input), 13140);
+        assert_eq!(
+            day10pt2::solve(input),
+            r"##..##..##..##..##..##..##..##..##..##..
+###...###...###...###...###...###...###.
+####....####....####....####....####....
+#####.....#####.....#####.....#####.....
+######......######......######......####
+#######.......#######.......#######....."
+        );
     }
 }

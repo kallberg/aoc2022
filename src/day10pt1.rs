@@ -21,7 +21,7 @@ impl Instruction {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Cpu {
     pub register_x: i64,
     pub program: Vec<Instruction>,
