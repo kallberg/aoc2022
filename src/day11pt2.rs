@@ -1,14 +1,7 @@
-use crate::day11pt1::Monkey;
+use crate::day11pt1::parse_monkeys;
 
 pub fn solve(input: &str) -> String {
-    let lines: Vec<&str> = input.lines().collect();
-    let monkey_lines = lines.chunks(7);
-
-    let monkey_strs = monkey_lines.map(|lines| lines.join("\n"));
-
-    let mut monkeys: Vec<Monkey> = monkey_strs
-        .map(|monkey_string| Monkey::from(monkey_string.as_str()))
-        .collect();
+    let mut monkeys = parse_monkeys(input);
 
     let monkey_cycle: usize = monkeys.iter().map(|monkey| monkey.test).product();
 
@@ -22,21 +15,6 @@ pub fn solve(input: &str) -> String {
                 receiver.items.push(throw.item % monkey_cycle);
             }
         }
-
-        // println!("round {}", round + 1);
-
-        // for (index, monkey) in monkeys.iter().enumerate() {
-        //     println!("Monkey {}: {:?}", index, monkey.items)
-        // }
-
-        // println!()
-    }
-
-    for (index, monkey) in monkeys.iter().enumerate() {
-        println!(
-            "Monkey {} inspected items {} times.",
-            index, monkey.inspections
-        )
     }
 
     let mut inspections = monkeys

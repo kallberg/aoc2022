@@ -147,15 +147,19 @@ impl Monkey {
     }
 }
 
-pub fn solve(input: &str) -> String {
+pub fn parse_monkeys(input: &str) -> Vec<Monkey> {
     let lines: Vec<&str> = input.lines().collect();
     let monkey_lines = lines.chunks(7);
 
     let monkey_strs = monkey_lines.map(|lines| lines.join("\n"));
 
-    let mut monkeys: Vec<Monkey> = monkey_strs
+    monkey_strs
         .map(|monkey_string| Monkey::from(monkey_string.as_str()))
-        .collect();
+        .collect()
+}
+
+pub fn solve(input: &str) -> String {
+    let mut monkeys = parse_monkeys(input);
 
     for _round in 0..20 {
         for monkey_index in 0..monkeys.len() {
@@ -167,21 +171,6 @@ pub fn solve(input: &str) -> String {
                 receiver.items.push(throw.item);
             }
         }
-
-        // println!("round {}", round + 1);
-
-        // for (index, monkey) in monkeys.iter().enumerate() {
-        //     println!("Monkey {}: {:?}", index, monkey.items)
-        // }
-
-        // println!()
-    }
-
-    for (index, monkey) in monkeys.iter().enumerate() {
-        println!(
-            "Monkey {} inspected items {} times.",
-            index, monkey.inspections
-        )
     }
 
     let mut inspections = monkeys
