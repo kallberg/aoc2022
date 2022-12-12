@@ -391,6 +391,6 @@ mod tests {
     fn day12pt2_eq_example() {
         let input = include_str!("../example_input/day12pt1.txt");
 
-        assert_eq!(day12pt2::solve(input), "");
+        assert_eq!(day12pt2::solve(input), "29");
     }
 }

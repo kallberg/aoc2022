@@ -50,7 +50,7 @@ pub struct Climber {
     pub moves: usize,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Climb {
     pub grid: Vec<Vec<usize>>,
     pub height: usize,
@@ -120,6 +120,20 @@ impl Display for Climb {
 impl Climb {
     pub fn elevation_at(&self, position: &Point) -> usize {
         self.grid[position.y][position.x]
+    }
+
+    pub fn starting_points(&self) -> Vec<Point> {
+        self.grid
+            .iter()
+            .enumerate()
+            .flat_map(|(y, line)| {
+                line.iter()
+                    .enumerate()
+                    .map(move |(x, height)| (x, y, height))
+            })
+            .filter(|(_, _, height)| **height == 0)
+            .map(|(x, y, _)| Point { x, y })
+            .collect()
     }
 }
 
@@ -296,5 +310,9 @@ pub fn solve(input: &str) -> String {
         println!()
     }
 
-    climbers[0].history.len().to_string()
+    climbers
+        .first()
+        .map(|climber| climber.moves)
+        .unwrap()
+        .to_string()
 }
