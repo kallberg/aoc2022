@@ -40,7 +40,7 @@ impl Point {
     }
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct Climber {
     pub position: Point,
     pub goal: Point,
@@ -48,6 +48,21 @@ pub struct Climber {
     pub visited: HashSet<Point>,
     pub history: HashMap<Point, Move>,
     pub moves: usize,
+    pub max_moves: usize,
+}
+
+impl Default for Climber {
+    fn default() -> Self {
+        Self {
+            max_moves: usize::MAX,
+            position: Default::default(),
+            elevation: Default::default(),
+            goal: Default::default(),
+            history: Default::default(),
+            moves: Default::default(),
+            visited: Default::default(),
+        }
+    }
 }
 
 #[derive(Default, Clone)]
@@ -139,6 +154,10 @@ impl Climb {
 
 impl Climber {
     pub fn can_move_to(&self, climb: &Climb, position: &Point) -> bool {
+        if self.moves >= self.max_moves {
+            return false;
+        }
+
         if self.visited.contains(position) {
             return false;
         }
@@ -288,26 +307,9 @@ pub fn solve(input: &str) -> String {
 
         best_climbers = climbers.iter().filter(|p| p.is_done()).cloned().collect();
 
-        //println!("Iteration {} climbers {}", iteration, climbers.len());
-
         if !best_climbers.is_empty() {
-            //println!("Climber(s) reached goal");
             break;
         }
-
-        // for (index, climber) in climbers.iter().enumerate() {
-        //     println!(
-        //         "Iteration {} climber {} position {:?} elevation {}",
-        //         iteration, index, climber.position, climber.elevation
-        //     );
-        // }
-
-        // println!()
-    }
-
-    for climber in best_climbers {
-        println!("{}", climber);
-        println!()
     }
 
     climbers

@@ -82,10 +82,7 @@ pub fn solve(input: &str) -> String {
 
     while cpu.tick() {
         match cpu.cycle {
-            20 | 60 | 100 | 140 | 180 | 220 => {
-                // println!("register_x={}, cycle={}", cpu.register_x, cpu.cycle);
-                signal_strengths.push(cpu.cycle * cpu.register_x)
-            }
+            20 | 60 | 100 | 140 | 180 | 220 => signal_strengths.push(cpu.cycle * cpu.register_x),
             _ => {}
         }
     }
