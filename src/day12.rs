@@ -1,7 +1,10 @@
 use std::{
     collections::{HashMap, HashSet},
     fmt::Display,
+    sync::{Arc, RwLock},
 };
+
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
 #[derive(Debug, Clone)]
 pub enum Move {
@@ -218,6 +221,50 @@ impl Climber {
         self.position.eq(&self.goal)
     }
 
+    pub fn climb_par(&self, climb: Arc<RwLock<Climb>>) -> Vec<Climber> {
+        let mut output = vec![];
+
+        let moves: Vec<Move>;
+
+        {
+            let readable_climb = climb.read().unwrap();
+            moves = self.moves(&readable_climb);
+        }
+
+        for move_value in moves {
+            let mut next = self.clone();
+            let point = self.position.moved(&move_value);
+
+            {
+                let readable_climb = climb.read().unwrap();
+                if let Some(existing_route) = readable_climb.route_lengths.get(&point) {
+                    if *existing_route <= next.moves + 1 {
+                        continue;
+                    }
+                }
+            }
+
+            let elevation: usize;
+            {
+                let readable_climb = climb.read().unwrap();
+                elevation = readable_climb.elevation_at(&point);
+            }
+
+            next.perform_move(move_value, elevation);
+
+            {
+                let mut writeable_climb = climb.write().unwrap();
+                writeable_climb
+                    .route_lengths
+                    .insert(next.position.clone(), next.moves);
+            }
+
+            output.push(next)
+        }
+
+        output
+    }
+
     pub fn climb(&self, climb: &mut Climb) -> Vec<Climber> {
         let mut output = vec![];
 
@@ -285,6 +332,17 @@ impl Display for Climber {
     }
 }
 
+pub fn manage_climbers_par(climbers: Vec<Climber>, climb: Arc<RwLock<Climb>>) -> Vec<Climber> {
+    let mut next = vec![];
+
+    for climber in climbers {
+        let mut new = climber.climb_par(climb.clone());
+        next.append(&mut new);
+    }
+
+    next
+}
+
 pub fn manage_climbers(climbers: Vec<Climber>, climb: &mut Climb) -> Vec<Climber> {
     let mut next = vec![];
 
@@ -319,8 +377,13 @@ pub fn solve_1(input: &str) -> String {
         .to_string()
 }
 
-pub fn solve_from_point(climb: &mut Climb, point: Point, best: usize) -> Option<usize> {
-    let mut starting_climber = climb.starting_climber.clone();
+pub fn solve_from_point(climb: Arc<RwLock<Climb>>, point: Point, best: usize) -> Option<usize> {
+    let mut starting_climber: Climber;
+    {
+        let readable_climb = climb.read().unwrap();
+        starting_climber = readable_climb.starting_climber.clone();
+    }
+
     starting_climber.visited.clear();
     starting_climber.position = point.clone();
     starting_climber.visited.insert(point);
@@ -331,7 +394,7 @@ pub fn solve_from_point(climb: &mut Climb, point: Point, best: usize) -> Option<
     let mut best_climbers: Vec<Climber>;
 
     while !climbers.is_empty() {
-        climbers = manage_climbers(climbers, climb);
+        climbers = manage_climbers_par(climbers, climb.clone());
 
         best_climbers = climbers.iter().filter(|p| p.is_done()).cloned().collect();
 
@@ -344,16 +407,18 @@ pub fn solve_from_point(climb: &mut Climb, point: Point, best: usize) -> Option<
 }
 
 pub fn solve_2(input: &str) -> String {
-    let mut climb = Climb::from(input);
+    let climb = Climb::from(input);
     let starting_points = climb.starting_points();
+    let climb = Arc::new(RwLock::new(climb));
 
-    let mut best = usize::MAX;
+    let best = usize::MAX;
 
-    for point in starting_points {
-        if let Some(result) = solve_from_point(&mut climb, point.clone(), best) {
-            best = best.min(result);
-        }
-    }
+    let output = starting_points
+        .par_iter()
+        .filter_map(|point| solve_from_point(climb.clone(), point.clone(), best))
+        .min();
+
+    let best = output.unwrap();
 
     best.to_string()
 }

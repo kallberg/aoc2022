@@ -1,8 +1,4 @@
-use std::{
-    fmt::Display,
-    ops::Rem,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
@@ -182,28 +178,6 @@ fn display_with_duration(
     .as_str();
 
     output
-}
-
-fn run<F, R>(day: usize, part: usize, solver: F, input: &str, multiline: bool) -> (Duration, String)
-where
-    F: FnOnce(&str) -> R,
-    R: Display,
-{
-    let start = Instant::now();
-    let solution = solver(input);
-    let duration = start.elapsed();
-
-    let report = display_with_duration(
-        80,
-        15,
-        multiline,
-        format!("day{}pt{}: ", day, part).as_str(),
-        "-",
-        format!("{}", solution).as_str(),
-        duration,
-    );
-
-    (duration, report)
 }
 
 #[cfg(test)]
