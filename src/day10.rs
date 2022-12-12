@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 #[derive(Debug, Clone)]
 pub enum Instruction {
     Noop,
@@ -70,7 +72,7 @@ impl From<&str> for Instruction {
     }
 }
 
-pub fn solve(input: &str) -> String {
+pub fn solve_1(input: &str) -> String {
     let mut cpu = Cpu {
         cycle: 1,
         register_x: 1,
@@ -88,4 +90,48 @@ pub fn solve(input: &str) -> String {
     }
 
     signal_strengths.iter().sum::<i64>().to_string()
+}
+
+pub struct Crt {
+    pub cpu: Cpu,
+}
+
+impl Display for Crt {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut cpu = self.cpu.clone();
+
+        if cpu.register_x < 2 {
+            write!(f, "#")?
+        } else {
+            write!(f, ".")?
+        }
+
+        while cpu.tick() {
+            let position = cpu.cycle % 40;
+
+            if position == 0 && cpu.cycle > 0 {
+                writeln!(f)?;
+            }
+
+            if (cpu.register_x - position).abs() < 2 {
+                write!(f, "#")?;
+            } else {
+                write!(f, ".")?;
+            }
+        }
+        Ok(())
+    }
+}
+
+pub fn solve_2(input: &str) -> String {
+    let cpu = Cpu {
+        cycle: 0,
+        register_x: 1,
+        program: input.lines().map(Instruction::from).collect(),
+        ..Default::default()
+    };
+
+    let crt = Crt { cpu };
+
+    format!("{}", crt)
 }

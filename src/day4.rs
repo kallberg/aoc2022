@@ -27,13 +27,25 @@ pub fn left_right_sets_from_line(line: &str) -> (HashSet<u32>, HashSet<u32>) {
     (left, right)
 }
 
-pub fn solve(input: &str) -> String {
+pub fn solve_1(input: &str) -> String {
     input
         .lines()
         .map(|line| {
             let (left, right) = left_right_sets_from_line(line);
 
             usize::from(left.is_superset(&right) || left.is_subset(&right))
+        })
+        .sum::<usize>()
+        .to_string()
+}
+
+pub fn solve_2(input: &str) -> String {
+    input
+        .lines()
+        .map(|line| {
+            let (left, right) = left_right_sets_from_line(line);
+
+            usize::from(!left.is_disjoint(&right))
         })
         .sum::<usize>()
         .to_string()

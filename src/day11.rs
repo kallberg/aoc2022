@@ -158,7 +158,7 @@ pub fn parse_monkeys(input: &str) -> Vec<Monkey> {
         .collect()
 }
 
-pub fn solve(input: &str) -> String {
+pub fn solve_1(input: &str) -> String {
     let mut monkeys = parse_monkeys(input);
 
     for _round in 0..20 {
@@ -169,6 +169,34 @@ pub fn solve(input: &str) -> String {
             for throw in throws {
                 let receiver = &mut monkeys[throw.monkey_index];
                 receiver.items.push(throw.item);
+            }
+        }
+    }
+
+    let mut inspections = monkeys
+        .iter()
+        .map(|monkey| monkey.inspections)
+        .collect::<Vec<usize>>();
+
+    inspections.sort();
+    inspections.reverse();
+
+    inspections.iter().take(2).product::<usize>().to_string()
+}
+
+pub fn solve_2(input: &str) -> String {
+    let mut monkeys = parse_monkeys(input);
+
+    let monkey_cycle: usize = monkeys.iter().map(|monkey| monkey.test).product();
+
+    for _round in 0..10000 {
+        for monkey_index in 0..monkeys.len() {
+            let monkey = &mut monkeys[monkey_index];
+            let throws = monkey.turn(false);
+
+            for throw in throws {
+                let receiver = &mut monkeys[throw.monkey_index];
+                receiver.items.push(throw.item % monkey_cycle);
             }
         }
     }

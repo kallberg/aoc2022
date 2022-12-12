@@ -22,7 +22,7 @@ pub fn priority(char: &char) -> u32 {
         .expect("find item priority")
 }
 
-pub fn solve(input: &str) -> String {
+pub fn solve_1(input: &str) -> String {
     let errors = input.lines().map(|line| {
         let (l, r) = split_rucksack_line(line);
         find_error(l, r)
@@ -31,4 +31,26 @@ pub fn solve(input: &str) -> String {
     let priorities = errors.map(|error| priority(&error));
 
     priorities.sum::<u32>().to_string()
+}
+
+pub fn solve_2(input: &str) -> String {
+    let charsets: Vec<HashSet<char>> = input
+        .lines()
+        .map(|line| HashSet::from_iter(line.chars()))
+        .collect();
+
+    let groups = charsets.chunks_exact(3);
+
+    groups
+        .map(|groups| match groups {
+            [one, two, three] => priority(
+                one.iter()
+                    .filter(|k| two.contains(k))
+                    .find(|k| three.contains(k))
+                    .expect("common group"),
+            ),
+            _ => unreachable!(),
+        })
+        .sum::<u32>()
+        .to_string()
 }

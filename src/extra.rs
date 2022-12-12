@@ -1,6 +1,6 @@
 use std::{fmt::Display, path::PathBuf};
 
-use crate::day7pt1::Directory;
+use crate::day7::Directory;
 
 impl Directory {
     pub fn name(&self) -> String {
