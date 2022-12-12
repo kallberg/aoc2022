@@ -1,7 +1,10 @@
 use std::{
     fmt::Display,
+    ops::Rem,
     time::{Duration, Instant},
 };
+
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
 mod day1;
 mod day10;
@@ -18,40 +21,11 @@ mod day9;
 
 mod extra;
 
-type BoxedSolver = Box<dyn Fn(&str) -> String + Send>;
-
 const PRINT_WIDTH: usize = 80;
 const TIME_PAD_WIDTH: usize = 15;
 
 fn main() {
-    let solvers: Vec<BoxedSolver> = vec![
-        Box::new(day1::solve_1),
-        Box::new(day1::solve_2),
-        Box::new(day2::solve_1),
-        Box::new(day2::solve_2),
-        Box::new(day3::solve_1),
-        Box::new(day3::solve_2),
-        Box::new(day4::solve_1),
-        Box::new(day4::solve_2),
-        Box::new(day5::solve_1),
-        Box::new(day5::solve_2),
-        Box::new(day6::solve_1),
-        Box::new(day6::solve_2),
-        Box::new(day7::solve_1),
-        Box::new(day7::solve_2),
-        Box::new(day8::solve_1),
-        Box::new(day8::solve_2),
-        Box::new(day9::solve_1),
-        Box::new(day9::solve_2),
-        Box::new(day10::solve_1),
-        Box::new(day10::solve_2),
-        Box::new(day11::solve_1),
-        Box::new(day11::solve_2),
-        Box::new(day12::solve_1),
-        Box::new(day12::solve_2),
-    ];
-
-    let inputs = vec![
+    let enumerated_inputs: Vec<(usize, &str)> = vec![
         include_str!("../input/day1.txt"),
         include_str!("../input/day1.txt"),
         include_str!("../input/day2.txt"),
@@ -76,35 +50,95 @@ fn main() {
         include_str!("../input/day11.txt"),
         include_str!("../input/day12.txt"),
         include_str!("../input/day12.txt"),
-    ];
-
-    let days = Vec::from_iter(inputs.into_iter().zip(solvers.into_iter()).enumerate());
-
-    for (index, (input, solver)) in days {
-        let day = (index) / 2 + 1;
-        let part = (index % 2) + 1;
-        let multiline = day == 10 && part == 2;
-        run(day, part, solver, input, multiline);
-    }
+    ]
+    .into_iter()
+    .enumerate()
+    .collect();
 
     let start = Instant::now();
 
+    let mut results: Vec<(usize, Duration, String)> = enumerated_inputs
+        .par_iter()
+        .map(|(index, input)| {
+            let day = (index) / 2 + 1;
+            let part = (index) % 2 + 1;
+
+            let start = Instant::now();
+
+            let result = match (day, part) {
+                (1, 1) => day1::solve_1(input),
+                (1, 2) => day1::solve_2(input),
+                (2, 1) => day2::solve_1(input),
+                (2, 2) => day2::solve_2(input),
+                (3, 1) => day3::solve_1(input),
+                (3, 2) => day3::solve_2(input),
+                (4, 1) => day4::solve_1(input),
+                (4, 2) => day4::solve_2(input),
+                (5, 1) => day5::solve_1(input),
+                (5, 2) => day5::solve_2(input),
+                (6, 1) => day6::solve_1(input),
+                (6, 2) => day6::solve_2(input),
+                (7, 1) => day7::solve_1(input),
+                (7, 2) => day7::solve_2(input),
+                (8, 1) => day8::solve_1(input),
+                (8, 2) => day8::solve_2(input),
+                (9, 1) => day9::solve_1(input),
+                (9, 2) => day9::solve_2(input),
+                (10, 1) => day10::solve_1(input),
+                (10, 2) => day10::solve_2(input),
+                (11, 1) => day11::solve_1(input),
+                (11, 2) => day11::solve_2(input),
+                (12, 1) => day12::solve_1(input),
+                (12, 2) => day12::solve_2(input),
+                _ => unreachable!(),
+            };
+
+            let duration = start.elapsed();
+
+            (*index, duration, result)
+        })
+        .collect();
+
     let duration = start.elapsed();
+
+    results.sort_by(|(a, _, _), (b, _, _)| a.cmp(b));
+
+    let mut sum_duration = Duration::ZERO;
+
+    for (index, duration, result) in results {
+        sum_duration += duration;
+
+        let day = (index) / 2 + 1;
+        let part = (index % 2) + 1;
+        let multiline = day == 10 && part == 2;
+
+        let report = display_with_duration(
+            80,
+            15,
+            multiline,
+            format!("day{}pt{}: ", day, part).as_str(),
+            "-",
+            result.as_str(),
+            duration,
+        );
+
+        println!("{}", report);
+    }
 
     println!();
 
-    // println!(
-    //     "{}",
-    //     display_with_duration(
-    //         PRINT_WIDTH,
-    //         TIME_PAD_WIDTH,
-    //         false,
-    //         "> ",
-    //         "-",
-    //         "total thread time",
-    //         sum_duration,
-    //     )
-    // );
+    println!(
+        "{}",
+        display_with_duration(
+            PRINT_WIDTH,
+            TIME_PAD_WIDTH,
+            false,
+            "> ",
+            "-",
+            "total thread time",
+            sum_duration,
+        )
+    );
 
     println!(
         "{}",
