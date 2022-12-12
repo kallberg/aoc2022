@@ -7,6 +7,8 @@ mod day10pt1;
 mod day10pt2;
 mod day11pt1;
 mod day11pt2;
+mod day12pt1;
+mod day12pt2;
 mod day1pt1;
 mod day1pt2;
 mod day2pt1;
@@ -57,6 +59,8 @@ fn main() {
         Box::new(day10pt2::solve),
         Box::new(day11pt1::solve),
         Box::new(day11pt2::solve),
+        Box::new(day12pt1::solve),
+        Box::new(day12pt2::solve),
     ];
 
     let inputs = vec![
@@ -82,6 +86,8 @@ fn main() {
         include_str!("../input/day10pt1.txt"),
         include_str!("../input/day11pt1.txt"),
         include_str!("../input/day11pt1.txt"),
+        include_str!("../input/day12pt1.txt"),
+        include_str!("../input/day12pt1.txt"),
     ];
 
     let days = Vec::from_iter(inputs.into_iter().zip(solvers.into_iter()).enumerate());
@@ -210,9 +216,9 @@ where
 #[cfg(test)]
 mod tests {
     use crate::{
-        day10pt1, day10pt2, day11pt1, day11pt2, day1pt1, day1pt2, day2pt1, day2pt2, day3pt1,
-        day3pt2, day4pt1, day4pt2, day5pt1, day5pt2, day6pt1, day6pt2, day7pt1, day7pt1::Directory,
-        day7pt2, day8pt1, day8pt1::TreeGrid, day8pt2, day9pt1, day9pt2,
+        day10pt1, day10pt2, day11pt1, day11pt2, day12pt1, day12pt2, day1pt1, day1pt2, day2pt1,
+        day2pt2, day3pt1, day3pt2, day4pt1, day4pt2, day5pt1, day5pt2, day6pt1, day6pt2, day7pt1,
+        day7pt1::Directory, day7pt2, day8pt1, day8pt1::TreeGrid, day8pt2, day9pt1, day9pt2,
     };
 
     #[test]
@@ -372,5 +378,19 @@ mod tests {
         let input = include_str!("../example_input/day11pt1.txt");
 
         assert_eq!(day11pt2::solve(input), "2713310158");
+    }
+
+    #[test]
+    fn day12pt1_eq_example() {
+        let input = include_str!("../example_input/day12pt1.txt");
+
+        assert_eq!(day12pt1::solve(input), "31");
+    }
+
+    #[test]
+    fn day12pt2_eq_example() {
+        let input = include_str!("../example_input/day12pt1.txt");
+
+        assert_eq!(day12pt2::solve(input), "");
     }
 }
