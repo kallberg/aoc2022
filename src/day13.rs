@@ -83,11 +83,7 @@ impl PartialOrd for PacketData {
 impl Ord for PacketData {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         match (self, other) {
-            (PacketData::Item(a), PacketData::Item(b)) => {
-                let ordering = a.cmp(b);
-                /* println!("Compare {} vs {}, => {:?}", a, b, ordering); */
-                a.cmp(b)
-            }
+            (PacketData::Item(a), PacketData::Item(b)) => a.cmp(b),
             (PacketData::Item(_), PacketData::List(_)) => {
                 PacketData::List(vec![self.clone()]).cmp(other)
             }
@@ -105,11 +101,7 @@ impl Ord for PacketData {
                     return ordering;
                 }
 
-                let ordering = a.len().cmp(&b.len());
-
-                // println!("a.len()={} < b.len({}), {:?}", a.len(), b.len(), ordering);
-
-                ordering
+                a.len().cmp(&b.len())
             }
             (PacketData::List(_), PacketData::Item(_)) => {
                 self.cmp(&PacketData::List(vec![other.clone()]))
