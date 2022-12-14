@@ -148,5 +148,36 @@ pub fn solve_1(input: &str) -> String {
 }
 
 pub fn solve_2(input: &str) -> String {
-    "Ok".to_string()
+    let mut packets: Vec<Packet> = input
+        .replace("\n\n", "\n")
+        .lines()
+        .map(Packet::from)
+        .collect();
+
+    let divider_one = Packet {
+        data: PacketData::List(vec![PacketData::Item(2)]),
+    };
+
+    let divider_two = Packet {
+        data: PacketData::List(vec![PacketData::Item(6)]),
+    };
+
+    packets.push(divider_one.clone());
+    packets.push(divider_two.clone());
+
+    packets.sort();
+
+    let decoder_key: usize = packets
+        .iter()
+        .enumerate()
+        .filter_map(|(index, packet)| {
+            if packet.eq(&divider_one) || packet.eq(&divider_two) {
+                Some(index + 1)
+            } else {
+                None
+            }
+        })
+        .product();
+
+    decoder_key.to_string()
 }

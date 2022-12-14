@@ -298,6 +298,6 @@ mod tests {
         let input = include_str!("../example_input/day13.txt");
 
         assert_eq!(day13::solve_1(input), "13");
-        //assert_eq!(day13::solve_2(input), "");
+        assert_eq!(day13::solve_2(input), "140");
     }
 }
