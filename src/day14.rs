@@ -1,29 +1,34 @@
-use std::{collections::HashSet, fmt::Display, iter::repeat};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Display,
+    iter::repeat,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Cell {
     Rock,
-    Air,
     Sand(bool),
     SandSource,
 }
 
-impl Cell {
-    pub fn blocks(&self) -> bool {
-        Cell::Air.ne(self)
-    }
+#[derive(Debug)]
+pub struct ScanPath {
+    pub traces: Vec<(i64, i64)>,
 }
 
-impl Display for Cell {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Cell::Rock => write!(f, "#"),
-            Cell::Air => write!(f, "."),
-            Cell::Sand(true) => write!(f, "~"),
-            Cell::Sand(false) => write!(f, "#"),
-            Cell::SandSource => write!(f, "+"),
-        }
-    }
+pub struct Simulation {
+    pub x: i64,
+    pub y: i64,
+    pub width: usize,
+    pub height: usize,
+    pub size: usize,
+    pub cells: HashMap<(i64, i64), Cell>,
+    pub spawn_source: (i64, i64),
+    pub resting: usize,
+}
+
+pub struct Scan {
+    pub rocks: HashSet<(i64, i64)>,
 }
 
 impl Scan {
@@ -36,13 +41,25 @@ impl Scan {
     }
 }
 
-#[derive(Debug)]
-pub struct ScanPath {
-    pub traces: Vec<(usize, usize)>,
+impl Cell {
+    pub fn blocks(&self) -> bool {
+        !matches!(self, Cell::SandSource)
+    }
+}
+
+impl Display for Cell {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Cell::Rock => write!(f, "#"),
+            Cell::Sand(true) => write!(f, "~"),
+            Cell::Sand(false) => write!(f, "o"),
+            Cell::SandSource => write!(f, "+"),
+        }
+    }
 }
 
 impl ScanPath {
-    pub fn as_points(&self) -> Vec<(usize, usize)> {
+    pub fn as_points(&self) -> Vec<(i64, i64)> {
         let mut output = Vec::new();
 
         let windows = self.traces.windows(2);
@@ -58,7 +75,7 @@ impl ScanPath {
             let range_x = from_x..=to_x;
             let range_y = from_y..=to_y;
 
-            let mut points: Vec<(usize, usize)> = match (left_x == right_x, left_y == right_y) {
+            let mut points: Vec<(i64, i64)> = match (left_x == right_x, left_y == right_y) {
                 (true, true) => panic!("scanner malfunction, duplicate path registered"),
                 (true, false) => repeat(left_x).zip(range_y).collect(),
                 (false, true) => (range_x).zip(repeat(left_y)).collect(),
@@ -72,57 +89,38 @@ impl ScanPath {
     }
 }
 
-pub struct Simulation {
-    pub x: usize,
-    pub y: usize,
-    pub width: usize,
-    pub height: usize,
-    pub sand_x: usize,
-    pub sand_y: usize,
-    pub cells: Vec<Cell>,
-    pub unsettled: Vec<usize>,
-}
-
-pub struct Scan {
-    pub rocks: HashSet<(usize, usize)>,
-}
-
 impl From<&Scan> for Simulation {
     fn from(scan: &Scan) -> Self {
-        let mut max_x = 0usize;
-        let mut max_y = 0usize;
-        let mut min_x = usize::MAX;
-        let mut min_y = usize::MIN;
+        let mut max_x = i64::MIN;
+        let mut max_y = i64::MIN;
+        let mut min_x = i64::MAX;
 
         for (x, y) in &scan.rocks {
             max_x = max_x.max(*x);
             max_y = max_y.max(*y);
             min_x = min_x.min(*x);
-            min_y = min_y.min(*y);
         }
 
-        let width = max_x - min_x + 1;
-        let height = max_y - min_y + 1;
-        let mut cells: Vec<Cell> = repeat(Cell::Air).take(width * height).collect();
+        let width = (max_x - min_x + 1) as usize;
+        let height = (max_y + 1) as usize;
+        let mut cells = HashMap::new();
 
         for (x, y) in &scan.rocks {
-            let local_x = x - min_x;
-            let local_y = y - min_y;
-            let index = local_x + local_y * width;
-            cells[index] = Cell::Rock
+            cells.insert((*x, *y), Cell::Rock);
         }
 
-        cells[500 - min_x] = Cell::SandSource;
+        let spawn_source = (500, 0);
+        cells.insert((500, 0), Cell::SandSource);
 
         Simulation {
             x: min_x,
-            y: min_y,
+            y: 0,
             width,
             height,
-            sand_x: 500,
-            sand_y: 0,
+            size: width * height,
             cells,
-            unsettled: vec![],
+            spawn_source,
+            resting: 0,
         }
     }
 }
@@ -130,7 +128,7 @@ impl From<&Scan> for Simulation {
 impl From<&str> for ScanPath {
     fn from(input: &str) -> Self {
         let coord_strs = input.split(" -> ");
-        let coords: Vec<(usize, usize)> = coord_strs
+        let coords: Vec<(i64, i64)> = coord_strs
             .filter_map(|coord_str| {
                 coord_str
                     .split_once(',')
@@ -142,17 +140,39 @@ impl From<&str> for ScanPath {
     }
 }
 
+fn read_digit(num: i64, magnitude: u32) -> i64 {
+    (num / 10i64.pow(magnitude - 1)) % 10
+}
+
 impl Display for Simulation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for (index, cell) in self.cells.iter().enumerate() {
-            cell.fmt(f)?;
-            let size = self.width * self.height;
+        let x_legend_height = (self.x as f64 + self.width as f64).log10() as u32 + 1;
+        let y_legend_width = ((self.y as f64 + self.width as f64).log2() / 4f64).floor() as u32 + 1;
 
-            if index > 0 && (index + 1) % self.width == 0 && index + 1 < size {
-                writeln!(f)?;
-            } else {
-                write!(f, " ")?;
+        for y in (0..x_legend_height).rev() {
+            write!(f, "{:>width$}", "", width = y_legend_width as usize + 1)?;
+            for x in self.x..(self.x + self.width as i64) {
+                if x % 10 == 0 {
+                    write!(f, "{} ", read_digit(x, y + 1))?
+                } else if x + 1 - self.x != self.width as i64 {
+                    write!(f, "* ")?;
+                }
             }
+            write!(f, "*")?;
+            writeln!(f)?;
+        }
+        for y in self.y..(self.y + self.height as i64) {
+            write!(f, "{:0>width$x} ", y, width = y_legend_width as usize)?;
+            for x in self.x..(self.x + self.width as i64) {
+                match self.cells.get(&(x, y)) {
+                    Some(c) => c.fmt(f),
+                    None => write!(f, "."),
+                }?;
+                if x + 1 - self.x != self.width as i64 {
+                    write!(f, " ")?;
+                }
+            }
+            writeln!(f)?;
         }
 
         Ok(())
@@ -160,115 +180,124 @@ impl Display for Simulation {
 }
 
 impl Simulation {
-    pub fn cell_index_from_global(&self, x: usize, y: usize) -> usize {
-        let local_x = x - self.x;
-        let local_y = y - self.y;
+    pub fn next_position(&self, position: (i64, i64)) -> (i64, i64) {
+        let (mut x, mut y) = position;
 
-        self.cell_index(local_x, local_y)
+        if y < 0 {
+            return (x, 0);
+        }
+
+        if self.is_blocked((x, y)) {
+            return position;
+        }
+
+        if y >= self.height as i64 {
+            return position;
+        }
+
+        y += 1;
+
+        if !self.is_blocked((x, y)) {
+            return (x, y);
+        }
+
+        // Move left
+        x -= 1;
+
+        if !self.is_blocked((x, y)) {
+            // left is available
+            return (x, y);
+        }
+
+        // Move to right side of block from left side
+        x += 2;
+
+        if !self.is_blocked((x, y)) {
+            // Down right is available check there
+            return (x, y);
+        }
+
+        // Left and right blocked, go back up
+        x -= 1;
+        y -= 1;
+
+        (x, y)
     }
 
-    pub fn cell_index(&self, x: usize, y: usize) -> usize {
-        assert!(x < self.width);
-        assert!(y < self.height);
-
-        x + y * self.width
+    pub fn is_blocked(&self, position: (i64, i64)) -> bool {
+        if let Some(cell) = self.cells.get(&position) {
+            cell.blocks()
+        } else {
+            false
+        }
     }
 
-    pub fn try_move_sand(&mut self, from: usize, to: usize) -> bool {
-        let to_cell = &self.cells[to];
+    pub fn add_floor(&mut self, height: usize) {
+        let from_x = self.x - self.width as i64;
+        let to_x = self.x + self.width as i64 * 2;
 
-        if to_cell.blocks() {
+        for x in from_x..to_x {
+            self.cells.insert((x, height as i64), Cell::Rock);
+        }
+    }
+
+    pub fn step_resting(&mut self) -> bool {
+        let spawn_index = self.spawn_source;
+        let mut current = spawn_index;
+
+        loop {
+            let next = self.next_position(current);
+
+            if current == next {
+                break;
+            }
+
+            current = next;
+        }
+
+        if current.1 + 1 >= self.height as i64 {
             return false;
         }
 
-        self.cells[to] = Cell::Sand(true);
-        self.cells[from] = Cell::Air;
-
-        true
+        match self.cells.get(&current) {
+            Some(cell) => match cell {
+                Cell::Rock => false,
+                Cell::Sand(false) => {
+                    self.cells.insert(current, Cell::Sand(true));
+                    false
+                }
+                Cell::Sand(true) => false,
+                Cell::SandSource => {
+                    self.cells.insert(current, Cell::Sand(false));
+                    self.resting += 1;
+                    false
+                }
+            },
+            None => {
+                self.cells.insert(current, Cell::Sand(false));
+                self.resting += 1;
+                true
+            }
+        }
     }
 
-    pub fn step(&mut self) -> bool {
-        let before = self.cells.clone();
-        let source = &self.cells[self.cell_index_from_global(self.sand_x, self.sand_y)];
-        assert_eq!(source, &Cell::SandSource);
-
-        let below_source_index = self.cell_index_from_global(self.sand_x, self.sand_y + 1);
-        let below_source = &self.cells[below_source_index];
-
-        if Cell::Air.ne(below_source) {
-            return false;
+    pub fn run(&mut self) {
+        loop {
+            if !self.step_resting() {
+                break;
+            }
         }
+        let mut step = self.next_position(self.spawn_source);
 
-        self.cells[below_source_index] = Cell::Sand(true);
-        self.unsettled.push(below_source_index);
+        loop {
+            let next = self.next_position(step);
 
-        let mut new_unsettled = vec![];
-
-        for unsettled_index in 0..self.unsettled.len() {
-            let index = self.unsettled[unsettled_index];
-            // x + y * self.width
-            let x = index % self.width;
-            let y = (index - x) / self.width;
-
-            let index = self.cell_index(x, y);
-
-            if !self.unsettled.contains(&index) {
-                continue;
+            if next == step {
+                break;
             }
-
-            let cell = &self.cells[index];
-
-            if Cell::Sand(true).ne(cell) {
-                continue;
-            }
-
-            if y + 1 == self.height {
-                self.cells[index] = Cell::Air;
-                continue;
-            }
-
-            let below_index = self.cell_index(x, y + 1);
-
-            if self.try_move_sand(index, below_index) {
-                new_unsettled.push(below_index);
-                continue;
-            }
-
-            if x == 0 {
-                self.cells[index] = Cell::Air;
-                continue;
-            }
-
-            let left_down_index = self.cell_index(x - 1, y + 1);
-
-            if self.try_move_sand(index, left_down_index) {
-                new_unsettled.push(left_down_index);
-                continue;
-            }
-
-            if x + 1 >= self.width {
-                self.cells[index] = Cell::Air;
-                continue;
-            }
-
-            let right_down_index = self.cell_index(x + 1, y + 1);
-
-            if self.try_move_sand(index, right_down_index) {
-                new_unsettled.push(right_down_index);
-                continue;
-            }
-
-            self.cells[index] = Cell::Sand(false);
+            self.cells.insert(step, Cell::Sand(true));
+            step = next;
         }
-        self.unsettled = new_unsettled;
-
-        if before == self.cells {
-            self.cells[below_source_index] = Cell::Sand(true);
-            self.unsettled.push(below_source_index);
-            return false;
-        }
-
-        true
     }
 }
 
@@ -283,28 +312,38 @@ pub fn solve_1(input: &str) -> String {
 
     let mut simulation = Simulation::from(&scan);
 
-    let mut iteration = 0;
+    simulation.height += 2;
+    simulation.width += 2;
+    simulation.x -= 1;
 
-    while simulation.step() {
-        iteration += 1;
-
-        assert!(iteration < 50000);
-    }
-
-    // println!("Iteration {}", iteration + 1);
+    simulation.run();
     // println!("{}", simulation);
 
-    let sand_cell_count: usize = simulation.cells.into_iter().fold(0, |count, cell| {
-        if cell == Cell::Sand(false) {
-            count + 1
-        } else {
-            count
-        }
-    });
-
-    sand_cell_count.to_string()
+    simulation.resting.to_string()
 }
 
 pub fn solve_2(input: &str) -> String {
-    "14".to_string()
+    let mut scan = Scan {
+        rocks: HashSet::new(),
+    };
+
+    for path in input.lines().map(ScanPath::from) {
+        scan.add_path(path);
+    }
+
+    let mut simulation = Simulation::from(&scan);
+
+    let needed_width = (simulation.height + 3) * 2;
+
+    let delta_width = needed_width - simulation.width;
+
+    simulation.width += delta_width;
+    simulation.add_floor(simulation.height + 1);
+    simulation.height += 2;
+    simulation.width -= simulation.width % 2 + 1;
+    simulation.x = simulation.spawn_source.0 - simulation.width as i64 / 2;
+
+    simulation.run();
+    // println!("{}", simulation);
+    simulation.resting.to_string()
 }

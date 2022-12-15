@@ -311,6 +311,6 @@ mod tests {
         let input = include_str!("../example_input/day14.txt");
 
         assert_eq!(day14::solve_1(input), "24");
-        assert_eq!(day14::solve_2(input), "14");
+        assert_eq!(day14::solve_2(input), "93");
     }
 }
