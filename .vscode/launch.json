@@ -7,7 +7,7 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Cargo test day 14",
+      "name": "Day 15 - test",
       "cargo": {
         "args": [
           "test",
@@ -17,14 +17,14 @@
       "args": [
         "--nocapture",
         "--",
-        "day14_eq_example",
+        "day15_eq_example",
         "--exact",
       ],
     },
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Debug",
+      "name": "Day 15 - Part 1",
       "cargo": {
         "args": [
           "build",
@@ -37,7 +37,34 @@
         }
       },
       "args": [],
-      "cwd": "${workspaceFolder}"
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "DAY": "15",
+        "PART": "1",
+        "VISUALIZE": "0"
+      }
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Day 15 - Part 2",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=aoc2022",
+          "--package=aoc2022"
+        ],
+        "filter": {
+          "name": "aoc2022",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "DAY": "15",
+        "PART": "2"
+      }
     },
   ]
 }

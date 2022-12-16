@@ -6,6 +6,8 @@ use std::{
 
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
+use crate::extra::visualize;
+
 #[derive(Debug, Clone)]
 pub enum Move {
     Up,
@@ -370,14 +372,18 @@ pub fn solve_1(input: &str) -> String {
         }
     }
 
-    climbers
-        .first()
-        .map(|climber| climber.moves)
-        .unwrap()
-        .to_string()
+    let best_climber = climbers.first().unwrap();
+
+    visualize(12, 1, &best_climber);
+
+    best_climber.moves.to_string()
 }
 
-pub fn solve_from_point(climb: Arc<RwLock<Climb>>, point: Point, best: usize) -> Option<usize> {
+pub fn best_climber_from_point(
+    climb: Arc<RwLock<Climb>>,
+    point: Point,
+    best: usize,
+) -> Option<Climber> {
     let mut starting_climber: Climber;
     {
         let readable_climb = climb.read().unwrap();
@@ -403,7 +409,7 @@ pub fn solve_from_point(climb: Arc<RwLock<Climb>>, point: Point, best: usize) ->
         }
     }
 
-    climbers.first().map(|climber| climber.moves)
+    climbers.first().cloned()
 }
 
 pub fn solve_2(input: &str) -> String {
@@ -413,12 +419,26 @@ pub fn solve_2(input: &str) -> String {
 
     let best = usize::MAX;
 
-    let output = starting_points
+    let climbers: Vec<Climber> = starting_points
         .par_iter()
-        .filter_map(|point| solve_from_point(climb.clone(), point.clone(), best))
-        .min();
+        .filter_map(|point| best_climber_from_point(climb.clone(), point.clone(), best))
+        .collect();
 
-    let best = output.unwrap();
+    let mut best_climber: Option<Climber> = None;
 
-    best.to_string()
+    for climber in climbers {
+        if let Some(current_best) = &best_climber {
+            if current_best.moves > climber.moves {
+                best_climber = Some(climber);
+            }
+        } else {
+            best_climber = Some(climber);
+        }
+    }
+
+    let best = best_climber.unwrap();
+
+    visualize(12, 2, &best);
+
+    best.moves.to_string()
 }

@@ -1,5 +1,7 @@
 use std::fmt::Display;
 
+use crate::extra::visualize;
+
 #[derive(Debug, Clone)]
 pub enum Instruction {
     Noop,
@@ -132,6 +134,8 @@ pub fn solve_2(input: &str) -> String {
     };
 
     let crt = Crt { cpu };
+
+    visualize(10, 2, &crt);
 
     format!("{}", crt)
 }

@@ -1,5 +1,7 @@
 use std::{collections::HashSet, fmt::Display, iter::repeat};
 
+use crate::extra::visualize;
+
 #[derive(Debug, Default, PartialEq, Eq, Hash, Clone)]
 pub struct Position {
     pub x: i64,
@@ -180,13 +182,21 @@ pub fn parse_directions(input: &str) -> Vec<Direction> {
 }
 
 pub fn solve_1(input: &str) -> String {
-    RopeSimulation::new(2)
-        .perform_moves(parse_directions(input))
-        .to_string()
+    let mut simulation = RopeSimulation::new(2);
+
+    let moves = simulation.perform_moves(parse_directions(input));
+
+    visualize(9, 1, &simulation);
+
+    moves.to_string()
 }
 
 pub fn solve_2(input: &str) -> String {
-    RopeSimulation::new(10)
-        .perform_moves(parse_directions(input))
-        .to_string()
+    let mut simulation = RopeSimulation::new(10);
+
+    let moves = simulation.perform_moves(parse_directions(input));
+
+    visualize(9, 2, &simulation);
+
+    moves.to_string()
 }

@@ -1,4 +1,7 @@
-use std::time::{Duration, Instant};
+use std::{
+    env,
+    time::{Duration, Instant},
+};
 
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
@@ -8,6 +11,7 @@ mod day11;
 mod day12;
 mod day13;
 mod day14;
+mod day15;
 mod day2;
 mod day3;
 mod day4;
@@ -52,6 +56,8 @@ fn main() {
         include_str!("../input/day13.txt"),
         include_str!("../input/day14.txt"),
         include_str!("../input/day14.txt"),
+        include_str!("../input/day15.txt"),
+        include_str!("../input/day15.txt"),
     ]
     .into_iter()
     .enumerate()
@@ -64,6 +70,18 @@ fn main() {
         .map(|(index, input)| {
             let day = (index) / 2 + 1;
             let part = (index) % 2 + 1;
+
+            if let Ok(day_str) = env::var("DAY") {
+                if day_str.parse::<usize>().unwrap() != day {
+                    return (*index, Duration::ZERO, "SKIPPED".to_string());
+                }
+
+                if let Ok(part_str) = env::var("PART") {
+                    if part_str.parse::<usize>().unwrap() != part {
+                        return (*index, Duration::ZERO, "SKIPPED".to_string());
+                    }
+                }
+            }
 
             let start = Instant::now();
 
@@ -96,6 +114,8 @@ fn main() {
                 (13, 2) => day13::solve_2(input),
                 (14, 1) => day14::solve_1(input),
                 (14, 2) => day14::solve_2(input),
+                (15, 1) => day15::solve_1(input),
+                (15, 2) => day15::solve_2(input),
                 _ => unreachable!(),
             };
 
@@ -193,7 +213,7 @@ fn display_with_duration(
 #[cfg(test)]
 mod tests {
     use crate::{
-        day1, day10, day11, day12, day13, day14, day2, day3, day4, day5, day6, day7, day8,
+        day1, day10, day11, day12, day13, day14, day15, day2, day3, day4, day5, day6, day7, day8,
         day8::TreeGrid, day9,
     };
 
@@ -312,5 +332,13 @@ mod tests {
 
         assert_eq!(day14::solve_1(input), "24");
         assert_eq!(day14::solve_2(input), "93");
+    }
+
+    #[test]
+    fn day15_eq_example() {
+        let input = include_str!("../example_input/day15.txt");
+
+        assert_eq!(day15::solve_1(input), "26");
+        assert_eq!(day15::solve_2(input), "56000011");
     }
 }

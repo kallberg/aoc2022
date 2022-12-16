@@ -4,6 +4,8 @@ use std::{
     iter::repeat,
 };
 
+use crate::extra::{visualize, ChristmasGraph, GraphMetadata};
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Cell {
     Rock,
@@ -140,42 +142,44 @@ impl From<&str> for ScanPath {
     }
 }
 
-fn read_digit(num: i64, magnitude: u32) -> i64 {
-    (num / 10i64.pow(magnitude - 1)) % 10
+impl ChristmasGraph for Simulation {
+    fn as_graph_metadata(&self) -> GraphMetadata {
+        let legend_y_width = format!("{:}", self.y + self.height as i64).len() as u32;
+        let legend_x_width = (self.x + self.width as i64).to_string().len() as u32;
+
+        GraphMetadata {
+            x: self.x,
+            y: self.y,
+            width: self.width as u32,
+            height: self.height as u32,
+            legend_step_x: 5,
+            legend_step_y: 1,
+            legend_y_width,
+            legend_x_width,
+        }
+    }
+
+    fn graph_legend_x(&self, value: i64) -> Vec<char> {
+        let string = value.to_string();
+        let chars = string.chars();
+        chars.collect()
+    }
+
+    fn graph_legend_y(&self, value: i64) -> Vec<char> {
+        format!("{:0x}", value).chars().collect()
+    }
+
+    fn graph_value(&self, x: i64, y: i64) -> Option<char> {
+        match self.cells.get(&(x, y)) {
+            Some(x) => format!("{}", x).chars().next(),
+            None => None,
+        }
+    }
 }
 
 impl Display for Simulation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let x_legend_height = (self.x as f64 + self.width as f64).log10() as u32 + 1;
-        let y_legend_width = ((self.y as f64 + self.width as f64).log2() / 4f64).floor() as u32 + 1;
-
-        for y in (0..x_legend_height).rev() {
-            write!(f, "{:>width$}", "", width = y_legend_width as usize + 1)?;
-            for x in self.x..(self.x + self.width as i64) {
-                if x % 10 == 0 {
-                    write!(f, "{} ", read_digit(x, y + 1))?
-                } else if x + 1 - self.x != self.width as i64 {
-                    write!(f, "* ")?;
-                }
-            }
-            write!(f, "*")?;
-            writeln!(f)?;
-        }
-        for y in self.y..(self.y + self.height as i64) {
-            write!(f, "{:0>width$x} ", y, width = y_legend_width as usize)?;
-            for x in self.x..(self.x + self.width as i64) {
-                match self.cells.get(&(x, y)) {
-                    Some(c) => c.fmt(f),
-                    None => write!(f, "."),
-                }?;
-                if x + 1 - self.x != self.width as i64 {
-                    write!(f, " ")?;
-                }
-            }
-            writeln!(f)?;
-        }
-
-        Ok(())
+        ChristmasGraph::fmt(self, f)
     }
 }
 
@@ -316,8 +320,11 @@ pub fn solve_1(input: &str) -> String {
     simulation.width += 2;
     simulation.x -= 1;
 
+    visualize(14, 1, &simulation);
+
     simulation.run();
-    // println!("{}", simulation);
+
+    visualize(14, 1, &simulation);
 
     simulation.resting.to_string()
 }
@@ -343,7 +350,11 @@ pub fn solve_2(input: &str) -> String {
     simulation.width -= simulation.width % 2 + 1;
     simulation.x = simulation.spawn_source.0 - simulation.width as i64 / 2;
 
+    visualize(14, 2, &simulation);
+
     simulation.run();
-    // println!("{}", simulation);
+
+    visualize(14, 2, &simulation);
+
     simulation.resting.to_string()
 }
