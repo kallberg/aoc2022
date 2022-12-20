@@ -1,0 +1,414 @@
+use std::collections::{HashMap, HashSet};
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Connection {
+    valve_id: usize,
+    distance: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Valve {
+    pub id: usize,
+    pub name: String,
+    pub flow_rate: usize,
+    pub connections: Vec<Connection>,
+    pub open: bool,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ValveSystem {
+    pub time_left: usize,
+    pub position: usize,
+    pub valves: Vec<Valve>,
+    pub released_preasure: usize,
+}
+
+impl From<&str> for ValveSystem {
+    fn from(value: &str) -> Self {
+        let mut output = ValveSystem {
+            valves: vec![],
+            time_left: 30,
+            position: 0,
+            released_preasure: 0,
+        };
+
+        let mut valve_dictionary = HashMap::new();
+        let mut valve_connections: HashMap<usize, Vec<String>> = HashMap::new();
+
+        for (valve_index, line) in value.lines().enumerate() {
+            let line = line.strip_prefix("Valve ").unwrap();
+            let (valve_name, line) = line.split_once(' ').unwrap();
+            let (flow_rate_str, line) = line
+                .strip_prefix("has flow rate=")
+                .unwrap()
+                .split_once(';')
+                .unwrap();
+            let (_, line) = line.split_once("valve").unwrap().1.split_once(' ').unwrap();
+
+            let mut connections: Vec<String> =
+                line.split(", ").map(|str| str.to_string()).collect();
+            if connections.is_empty() {
+                connections = vec![line.to_string()];
+            }
+            let valve_name = valve_name.to_string();
+            valve_dictionary.insert(valve_name.clone(), valve_index);
+            valve_connections.insert(valve_index, connections);
+
+            output.valves.push(Valve {
+                name: valve_name,
+                flow_rate: flow_rate_str.parse().unwrap(),
+                id: valve_index,
+                connections: vec![],
+                open: false,
+            });
+        }
+
+        for (valve_index, connections) in valve_connections {
+            for connection in connections {
+                let Some(connection_index) = valve_dictionary.get(&connection) else {
+                    continue;
+                };
+
+                output.valves[valve_index].connections.push(Connection {
+                    valve_id: *connection_index,
+                    distance: 1,
+                });
+            }
+        }
+
+        output
+    }
+}
+
+impl Valve {
+    pub fn visit(&mut self, other: &Valve, distance: usize) -> Vec<Connection> {
+        let mut new_connections = vec![];
+
+        for connection in &other.connections {
+            let Some(current_connection) = self.connections.iter().find(|current_connection| current_connection.valve_id == connection.valve_id) else {
+                let mut new_connection = connection.clone();
+                new_connection.distance += distance;
+                self.connections.push(new_connection.clone());
+                new_connections.push(new_connection);
+
+                continue;
+            };
+
+            if current_connection.distance > connection.distance + distance {
+                let mut new_connection = connection.clone();
+                new_connection.distance += distance;
+                self.connections.push(new_connection.clone());
+                new_connections.push(new_connection);
+            }
+        }
+
+        new_connections
+    }
+
+    pub fn connection_to(&self, other: &Valve) -> Connection {
+        self.connections
+            .iter()
+            .find(|connection| connection.valve_id == other.id)
+            .unwrap()
+            .clone()
+    }
+
+    pub fn has_connection_to(&self, valve_id: usize) -> bool {
+        self.connections
+            .iter()
+            .any(|connection| connection.valve_id == valve_id)
+    }
+
+    pub fn remove_connection(&mut self, valve_id: usize) {
+        self.connections
+            .retain(|connection| connection.valve_id != valve_id);
+    }
+
+    pub fn share_connections(&self, other: &mut Valve) {
+        let other_connection = self.connection_to(other);
+        let other_distance = other_connection.distance;
+
+        for connection in &self.connections {
+            if connection.valve_id != self.id
+                && !other.has_connection_to(connection.valve_id)
+                && connection.valve_id != other.id
+            {
+                other.connections.push(Connection {
+                    valve_id: connection.valve_id,
+                    distance: other_distance + connection.distance,
+                })
+            }
+        }
+    }
+
+    fn trim_connections(&mut self) {
+        let copy = self.connections.clone();
+        self.connections.retain(|connection| {
+            for ref_connection in &copy {
+                if connection.valve_id == ref_connection.valve_id
+                    && ref_connection.distance < connection.distance
+                {
+                    return false;
+                }
+            }
+
+            true
+        })
+    }
+}
+
+impl ValveSystem {
+    pub fn disconnect(&mut self, valve_index: usize) {
+        for connection_index in 0..self.valves[valve_index].connections.len() {
+            let connection = self.valves[valve_index].connections[connection_index].clone();
+            let valve = self.valves[valve_index].clone();
+            let other = &mut self.valves[connection.valve_id];
+
+            valve.share_connections(other);
+            other.remove_connection(valve.id);
+        }
+    }
+
+    pub fn simplify(&mut self) {
+        for valve_index in 0..self.valves.len() {
+            if self.valves[valve_index].flow_rate == 0 {
+                self.disconnect(valve_index);
+            }
+        }
+    }
+
+    pub fn discover(&mut self) {
+        for valve_index in 0..self.valves.len() {
+            if self.valves[valve_index].flow_rate == 0 {
+                continue;
+            }
+            let mut visited: HashSet<usize> = HashSet::new();
+            let mut queue = self.valves[valve_index].connections.clone();
+
+            while let Some(connection_visit) = queue.pop() {
+                if visited.contains(&connection_visit.valve_id) {
+                    continue;
+                }
+
+                visited.insert(connection_visit.valve_id);
+                let valve = self.valves[connection_visit.valve_id].clone();
+                queue.append(&mut self.valves[valve_index].visit(&valve, connection_visit.distance))
+            }
+
+            self.valves[valve_index].trim_connections();
+        }
+    }
+
+    pub fn distance(&self, from_valve: usize, to_valve: usize) -> usize {
+        if from_valve == to_valve {
+            return 0;
+        }
+
+        let valve = &self.valves[from_valve];
+
+        let Some(connection) = valve.connections.iter().find(|connection| connection.valve_id == to_valve) else {
+            return usize::MAX
+        };
+
+        connection.distance
+    }
+
+    pub fn simulate(&mut self, time: usize) {
+        if self.time_left == 0 {
+            return;
+        }
+
+        let mut time_passing = time;
+
+        if time > self.time_left {
+            time_passing = self.time_left;
+        }
+
+        self.time_left -= time_passing;
+
+        for valve in &self.valves {
+            if valve.open {
+                self.released_preasure += valve.flow_rate * time_passing;
+            }
+        }
+    }
+
+    pub fn open(&mut self, valve_id: usize) {
+        let time_spent = self.distance(self.position, valve_id) + 1;
+
+        self.simulate(time_spent);
+        self.position = valve_id;
+        self.valves[valve_id].open = true;
+    }
+
+    pub fn reachable_valves(&self, distance: usize) -> Vec<usize> {
+        self.valves
+            .iter()
+            .filter_map(|valve| {
+                if valve.id == self.position {
+                    return None;
+                }
+
+                let valve_distance = self.distance(self.position, valve.id);
+
+                if valve_distance <= distance {
+                    return Some(valve.id);
+                }
+
+                None
+            })
+            .collect()
+    }
+
+    pub fn reachable_closed_valves_with_flow_rate(&self, distance: usize) -> Vec<usize> {
+        self.reachable_valves(distance)
+            .into_iter()
+            .filter(|valve_id| !self.valves[*valve_id].open && self.valves[*valve_id].flow_rate > 0)
+            .collect()
+    }
+
+    pub fn solve(&mut self, cache: &mut HashMap<ValveSystem, ValveSystem>) {
+        if let Some(cache_hit) = cache.get(self) {
+            let cache_hit = cache_hit.clone();
+            self.valves = cache_hit.valves;
+            self.position = cache_hit.position;
+            self.time_left = cache_hit.time_left;
+            self.released_preasure = cache_hit.released_preasure;
+            return;
+        }
+
+        if self.time_left < 2 {
+            // There is no time left to do anything - let time pass
+            return self.simulate(self.time_left);
+        }
+
+        if self.time_left == 2 {
+            // There is just enough time to open this valve if it is closed
+            // only open this if we have flow rate > 0
+            // let time pass
+            if !self.valves[self.position].open && self.valves[self.position].flow_rate > 0 {
+                self.open(self.position);
+            }
+            return self.simulate(self.time_left);
+        }
+
+        if self.time_left == 3 {
+            // Many things might be able to happen now
+            // If several things can happen we need to try and choose the best outcome
+            // Valves can be reached if distance is 1
+            // 1. There are no reachable closed valves
+            //    a. This valve is open - let time pass
+            //    b. This valve is closed - let time pass
+            // 2. There are reachable closed valves
+            //    a. This valve is open
+            //       - try each valve reachable valve
+            //       - add each resulting state to candidate vector
+            //       - find max score and become that state
+            //    b. This valve is closed
+            //      - try open this valve
+            //      - let time pass
+            //      - add resulting state to candidate vector
+            //      - perform 2.a
+
+            let mut candidates: Vec<ValveSystem> = vec![];
+
+            let reachable = self.reachable_closed_valves_with_flow_rate(1);
+
+            if reachable.is_empty() {
+                // 1.
+                if self.valves[self.position].open && self.valves[self.position].flow_rate > 0 {
+                    self.open(self.position);
+                }
+
+                return self.simulate(self.time_left);
+            }
+
+            if !self.valves[self.position].open {
+                // 2.b.
+                let mut candidate = self.clone();
+                candidate.open(self.position);
+                candidate.simulate(candidate.time_left);
+                candidates.push(candidate);
+            }
+
+            for reachable_valve in reachable {
+                // 2.a.
+                let mut candidate = self.clone();
+                candidate.open(reachable_valve);
+                candidate.simulate(candidate.time_left);
+                candidates.push(candidate);
+            }
+
+            candidates.sort_unstable_by_key(|candidate| candidate.released_preasure);
+            candidates.reverse();
+            let best_candidate = candidates[0].clone();
+            self.valves = best_candidate.valves;
+            self.position = best_candidate.position;
+            self.time_left = best_candidate.time_left;
+            self.released_preasure = best_candidate.released_preasure;
+
+            return;
+        }
+
+        let before = self.clone();
+
+        // Case to complex at this level (time > 3)
+        // We take steps close to time==3 but call solve instead
+
+        // Reachable and openable (with score) means distance = time left - 2
+        let reachable = self.reachable_closed_valves_with_flow_rate(self.time_left - 2);
+
+        if reachable.is_empty() {
+            if self.valves[self.position].open {
+                // No reachable valves and we can't open this - just wait
+                self.simulate(self.time_left);
+                cache.insert(before, self.clone());
+                return;
+            }
+
+            self.open(self.position);
+            self.simulate(self.time_left);
+            cache.insert(before, self.clone());
+            return;
+        }
+
+        let mut candidates = vec![];
+
+        for reachable_valve in reachable {
+            let mut candidate = self.clone();
+            candidate.open(reachable_valve);
+            candidate.solve(cache);
+            candidates.push(candidate);
+        }
+
+        if !self.valves[self.position].open && self.valves[self.position].flow_rate > 0 {
+            let mut candidate = self.clone();
+            candidate.open(self.position);
+            candidate.solve(cache);
+            candidates.push(candidate);
+        }
+
+        candidates.sort_unstable_by_key(|candidate| candidate.released_preasure);
+        candidates.reverse();
+        let best_candidate = candidates[0].clone();
+        self.valves = best_candidate.valves;
+        self.position = best_candidate.position;
+        self.time_left = best_candidate.time_left;
+        self.released_preasure = best_candidate.released_preasure;
+
+        cache.insert(before, self.clone());
+    }
+}
+
+pub fn solve_1(input: &str) -> String {
+    let mut system = ValveSystem::from(input);
+
+    system.simplify();
+    system.discover();
+
+    system.solve(&mut HashMap::new());
+
+    system.released_preasure.to_string()
+}
+pub fn solve_2(input: &str) -> String {
+    "todo".to_string()
+}

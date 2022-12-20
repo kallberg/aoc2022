@@ -1,0 +1,692 @@
+use std::{
+    collections::{HashMap, HashSet, VecDeque},
+    fmt::Debug,
+};
+
+type DistPathsCache = HashMap<(usize, usize), Vec<Vec<usize>>>;
+type ScenarioCache = HashMap<(usize, usize), ScenarioSearch>;
+
+#[derive(Clone)]
+pub struct SearchData {
+    pub current: usize,
+    pub time: usize,
+    pub seen_action_paths: HashSet<String>,
+    pub paths_cache: DistPathsCache,
+    pub cache: ScenarioCache,
+    pub only_open_actions: bool,
+    pub action_path: String,
+    pub call_counter: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Scenario {
+    actions: Vec<Action>,
+    action_path: String,
+}
+
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ScenarioSearch {
+    scenarios: Vec<Scenario>,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum ValveState {
+    Closed,
+    Opened(usize),
+}
+
+#[derive(Debug, Clone)]
+pub struct Valve {
+    pub id: usize,
+    pub name: String,
+    pub flow_rate: usize,
+    pub connections: Vec<usize>,
+    pub state: ValveState,
+}
+
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
+pub enum Action {
+    // valve id, valve name, valve flowrate, time opened
+    Open(usize, String, usize, usize),
+    Move(String),
+    Wait,
+}
+
+impl Debug for Action {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Open(valve_id, valve_name, valve_flow_rate, time) => f
+                .debug_struct("Open")
+                .field("id", valve_id)
+                .field("name", valve_name)
+                .field("flow_rate", valve_flow_rate)
+                .field("time", time)
+                .finish(),
+            Self::Move(valve_name) => write!(f, "Move({})", valve_name),
+            Self::Wait => write!(f, "Wait"),
+        }
+    }
+}
+
+impl Valve {
+    pub fn as_open_action(&self, time: usize) -> Action {
+        Action::Open(self.id, self.name.clone(), self.flow_rate, time)
+    }
+
+    pub fn is_open(&self) -> bool {
+        self.state != ValveState::Closed
+    }
+
+    pub fn scenarios(
+        &self,
+        system: &Vec<Valve>,
+        mut time: usize,
+        seen: &mut HashSet<Vec<Action>>,
+        paths_cache: &mut DistPathsCache,
+        cache: &mut HashMap<(usize, usize), Vec<Vec<Action>>>,
+        opened: &mut HashSet<usize>,
+        only_open_actions: bool,
+    ) -> Vec<Vec<Action>> {
+        let original_time = time;
+
+        if let Some(cached) = cache.get(&(self.id, time)) {
+            return cached.clone();
+        }
+
+        if time == 0 {
+            // No time
+            if !only_open_actions {
+                return vec![vec![Action::Move(self.name.clone())]];
+            } else {
+                return vec![];
+            }
+        }
+
+        if time == 1 {
+            // Not enough time, just wait
+            if !only_open_actions {
+                return vec![vec![Action::Move(self.name.clone()), Action::Wait]];
+            } else {
+                return vec![vec![]];
+            }
+        }
+
+        if time == 2 {
+            // Just enough time to open current
+
+            // But if we already tried opening it we just wait
+            if opened.contains(&self.id) {
+                if !only_open_actions {
+                    return vec![vec![Action::Move(self.name.clone()), Action::Wait]];
+                } else {
+                    return vec![vec![]];
+                }
+            }
+
+            if !only_open_actions {
+                return vec![vec![
+                    Action::Move(self.name.clone()),
+                    self.as_open_action(time - 1),
+                    Action::Wait,
+                ]];
+            } else {
+                return vec![vec![self.as_open_action(time - 1)]];
+            }
+        }
+
+        let mut scenarios = vec![];
+
+        time -= 1;
+
+        for path in self.paths(system, time, &mut HashSet::new(), paths_cache) {
+            for (travel_index, valve_index) in path.into_iter().enumerate() {
+                let valve = &system[valve_index].clone();
+
+                // No time to move here even if we do not open valve
+                if travel_index > time {
+                    break;
+                }
+
+                // Copy of opened so far, where this one remained closed
+                let mut opened_clone = opened.clone();
+
+                for mut valve_move_now_scenario in valve.scenarios(
+                    system,
+                    time - travel_index,
+                    seen,
+                    paths_cache,
+                    cache,
+                    &mut opened_clone,
+                    only_open_actions,
+                ) {
+                    if !only_open_actions {
+                        let mut scenario = vec![Action::Move(self.name.clone())];
+                        scenario.append(&mut valve_move_now_scenario);
+                        scenarios.push(scenario);
+                    } else {
+                        scenarios.push(valve_move_now_scenario);
+                    }
+                }
+
+                // No time to move if we opened valve
+                if travel_index + 1 > time {
+                    break;
+                }
+
+                // Do not attempt to search with this valve opened again
+                if opened.contains(&self.id) {
+                    continue;
+                }
+
+                // Copy of opened so far, where this one was opened
+                let mut opened_clone = opened.clone();
+                opened_clone.insert(self.id);
+
+                for mut valve_move_after_scenario in valve.scenarios(
+                    system,
+                    time - travel_index - 1,
+                    seen,
+                    paths_cache,
+                    cache,
+                    &mut opened_clone,
+                    only_open_actions,
+                ) {
+                    if !only_open_actions {
+                        let mut scenario =
+                            vec![Action::Move(self.name.clone()), self.as_open_action(time)];
+                        scenario.append(&mut valve_move_after_scenario);
+                        scenarios.push(scenario);
+                    } else {
+                        let mut scenario = vec![self.as_open_action(time)];
+                        scenario.append(&mut valve_move_after_scenario);
+                        scenarios.push(scenario);
+                    }
+                }
+            }
+        }
+
+        // Filter out scenarios that end with Move, Move, Wait or equal Move, Wait
+
+        scenarios.retain(|actions| {
+            if seen.contains(actions) {
+                return false;
+            }
+
+            seen.insert(actions.clone());
+
+            true
+        });
+
+        cache.insert((self.id, original_time), scenarios.clone());
+
+        scenarios
+    }
+
+    pub fn paths(
+        &self,
+        system: &Vec<Valve>,
+        dist: usize,
+        visited: &mut HashSet<usize>,
+        cache: &mut DistPathsCache,
+    ) -> Vec<Vec<usize>> {
+        if let Some(cached) = cache.get(&(self.id, dist)) {
+            return cached.clone();
+        }
+
+        if dist == 0 {
+            return vec![];
+        }
+
+        if dist == 1 {
+            return self
+                .connections
+                .iter()
+                .filter_map(|p| {
+                    if visited.contains(p) {
+                        None
+                    } else {
+                        Some(vec![*p])
+                    }
+                })
+                .collect();
+        }
+
+        let mut paths = vec![];
+
+        visited.insert(self.id);
+
+        for connection in &self.connections {
+            if visited.contains(connection) {
+                continue;
+            }
+
+            let connection_valve = &system[*connection];
+            let mut connection_paths =
+                connection_valve.paths(system, dist - 1, &mut visited.clone(), cache);
+
+            for connection_path in &mut connection_paths {
+                let mut path = vec![*connection];
+
+                path.append(connection_path);
+
+                paths.push(path);
+            }
+            paths.push(vec![*connection]);
+        }
+
+        cache.insert((self.id, dist), paths.clone());
+        paths
+    }
+
+    fn open(&mut self, time: usize) {
+        self.state = ValveState::Opened(time);
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ValveSystem {
+    pub time_left: usize,
+    pub position: usize,
+    pub valves: Vec<Valve>,
+    pub paths: HashMap<usize, HashMap<usize, Vec<usize>>>,
+}
+
+impl From<&str> for ValveSystem {
+    fn from(value: &str) -> Self {
+        let mut output = ValveSystem {
+            valves: vec![],
+            time_left: 30,
+            position: 0,
+            paths: HashMap::new(),
+        };
+
+        let mut valve_dictionary = HashMap::new();
+        let mut valve_connections: HashMap<usize, Vec<String>> = HashMap::new();
+
+        for (valve_index, line) in value.lines().enumerate() {
+            let line = line.strip_prefix("Valve ").unwrap();
+            let (valve_name, line) = line.split_once(' ').unwrap();
+            let (flow_rate_str, line) = line
+                .strip_prefix("has flow rate=")
+                .unwrap()
+                .split_once(';')
+                .unwrap();
+            let (_, line) = line.split_once("valve").unwrap().1.split_once(' ').unwrap();
+
+            let mut connections: Vec<String> =
+                line.split(", ").map(|str| str.to_string()).collect();
+            if connections.is_empty() {
+                connections = vec![line.to_string()];
+            }
+            let valve_name = valve_name.to_string();
+            valve_dictionary.insert(valve_name.clone(), valve_index);
+            valve_connections.insert(valve_index, connections);
+
+            output.valves.push(Valve {
+                name: valve_name,
+                flow_rate: flow_rate_str.parse().unwrap(),
+                id: valve_index,
+                connections: vec![],
+                state: ValveState::Closed,
+            });
+        }
+
+        for (valve_index, connections) in valve_connections {
+            for connection in connections {
+                let Some(connection_index) = valve_dictionary.get(&connection) else {
+                    continue;
+                };
+
+                output.valves[valve_index]
+                    .connections
+                    .push(*connection_index);
+            }
+        }
+
+        output
+    }
+}
+
+impl ValveSystem {
+    pub fn move_to_valve(&mut self, valve_id: usize) {
+        self.position = valve_id;
+        self.time_left -= 1;
+    }
+
+    pub fn shortest_path_from(
+        &self,
+        from: usize,
+        to: usize,
+        visited: &mut HashSet<usize>,
+    ) -> Option<VecDeque<usize>> {
+        if visited.contains(&from) {
+            return None;
+        }
+        visited.insert(from);
+
+        if from == to {
+            return None;
+        }
+
+        let moves = self.moves_at(from);
+
+        if moves.contains(&to) {
+            let mut path = VecDeque::new();
+            path.push_back(to);
+            return Some(path);
+        }
+
+        let mut possible_paths = vec![];
+
+        for possible_move in moves {
+            if visited.contains(possible_move) {
+                continue;
+            }
+
+            let mut copy_of_visited = visited.clone();
+            visited.insert(*possible_move);
+
+            let Some(mut path) = self.shortest_path_from(*possible_move, to, &mut copy_of_visited) else {continue;};
+
+            path.push_front(*possible_move);
+
+            possible_paths.push(path);
+        }
+
+        let mut shortest_path = None;
+        let mut shortest = usize::MAX;
+
+        for path in possible_paths {
+            if path.len() < shortest {
+                shortest = path.len();
+                shortest_path = Some(path);
+            }
+        }
+
+        shortest_path
+    }
+
+    pub fn open(&mut self) {
+        self.time_left -= 1;
+        if self.valves[self.position].is_open() {
+            panic!("opening already open valve");
+        }
+        self.valves[self.position].state = ValveState::Opened(self.time_left);
+    }
+
+    pub fn moves_at(&self, position: usize) -> &Vec<usize> {
+        &self.valves[position].connections
+    }
+
+    pub fn moves(&self) -> &Vec<usize> {
+        self.moves_at(self.position)
+    }
+
+    pub fn scenarios(&self, search_state: &mut SearchData) -> Option<ScenarioSearch> {
+        let current_valve = self.valves[search_state.current].clone();
+        let original_time = search_state.time;
+
+        search_state.action_path += current_valve.name.as_str();
+        search_state.action_path += "(";
+        search_state.action_path += search_state.time.to_string().as_str();
+        search_state.action_path += ")";
+        let call_id = search_state.call_counter;
+        search_state.call_counter += 1;
+
+        if search_state
+            .seen_action_paths
+            .contains(&search_state.action_path)
+        {
+            return None;
+        }
+
+        search_state
+            .seen_action_paths
+            .insert(search_state.action_path.clone());
+
+        // if let Some(cached) = search_state
+        //     .cache
+        //     .get(&(current_valve.id, search_state.time))
+        // {
+        //     return Some(cached.clone());
+        // }
+
+        if search_state.time == 0 {
+            // No time
+            if !search_state.only_open_actions {
+                let result = ScenarioSearch {
+                    scenarios: vec![Scenario {
+                        actions: vec![Action::Move(current_valve.name.clone())],
+                        action_path: search_state.action_path.clone(),
+                    }],
+                };
+
+                return Some(result);
+            } else {
+                return None;
+            }
+        }
+
+        if search_state.time == 1 {
+            // Not enough time, just wait
+            if !search_state.only_open_actions {
+                let result = ScenarioSearch {
+                    scenarios: vec![Scenario {
+                        actions: vec![Action::Move(current_valve.name.clone()), Action::Wait],
+                        action_path: search_state.action_path.clone(),
+                    }],
+                };
+
+                return Some(result);
+            } else {
+                return None;
+            }
+        }
+
+        if search_state.time == 2 {
+            // Just enough time to open current
+
+            // But if we already tried opening it we just wait
+            if current_valve.is_open() {
+                if !search_state.only_open_actions {
+                    let result = ScenarioSearch {
+                        scenarios: vec![Scenario {
+                            actions: vec![Action::Move(current_valve.name.clone()), Action::Wait],
+                            action_path: search_state.action_path.clone(),
+                        }],
+                    };
+
+                    return Some(result);
+                } else {
+                    return None;
+                }
+            }
+
+            if !search_state.only_open_actions {
+                let result = ScenarioSearch {
+                    scenarios: vec![Scenario {
+                        actions: vec![
+                            Action::Move(current_valve.name.clone()),
+                            current_valve.as_open_action(search_state.time - 1),
+                            Action::Wait,
+                        ],
+                        action_path: search_state.action_path.clone(),
+                    }],
+                };
+
+                return Some(result);
+            } else {
+                let result = ScenarioSearch {
+                    scenarios: vec![Scenario {
+                        actions: vec![current_valve.as_open_action(search_state.time - 1)],
+                        action_path: search_state.action_path.clone(),
+                    }],
+                };
+
+                return Some(result);
+            }
+        }
+
+        let mut search_result = ScenarioSearch { scenarios: vec![] };
+
+        let remaining_time = search_state.time - 1;
+        let original_path = search_state.action_path.clone();
+
+        let original_valve_index = search_state.current;
+
+        let paths = current_valve.paths(
+            &self.valves,
+            remaining_time,
+            &mut HashSet::new(),
+            &mut search_state.paths_cache,
+        );
+
+        for path in paths {
+            let enumerated_path = path.into_iter().enumerate();
+
+            for (travel_index, valve_index) in enumerated_path {
+                let valve = self.valves[valve_index].clone();
+
+                // No time to move here even if we do not open valve
+                if travel_index > remaining_time {
+                    break;
+                }
+
+                // Copy of opened so far, where this one remained closed
+                let cloned_self = self.clone();
+                search_state.current = valve.id;
+                search_state.time = remaining_time - travel_index;
+                search_state.action_path = original_path.clone();
+                let search = cloned_self.scenarios(search_state);
+
+                if let Some(valve_move_now_scenarios) = search {
+                    for mut valve_move_now_scenario in valve_move_now_scenarios.scenarios {
+                        if !search_state.only_open_actions {
+                            let mut scenario = Scenario {
+                                actions: vec![Action::Move(current_valve.name.clone())],
+                                action_path: valve_move_now_scenario.action_path,
+                            };
+                            scenario
+                                .actions
+                                .append(&mut valve_move_now_scenario.actions);
+                            search_result.scenarios.push(scenario);
+                        } else {
+                            search_result.scenarios.push(valve_move_now_scenario);
+                        }
+                    }
+                }
+
+                // No time to move if we opened valve
+                if travel_index + 1 > remaining_time {
+                    break;
+                }
+
+                // Do not attempt to search with this valve opened again
+                if valve.is_open() {
+                    continue;
+                }
+
+                search_state.current = valve.id;
+                search_state.time = remaining_time - travel_index - 1;
+                search_state.action_path = original_path.clone() + "^";
+
+                // Copy of opened so far, where this one was opened
+
+                let search = self.scenarios(search_state);
+
+                if let Some(valve_move_after_scenarios) = search {
+                    for mut valve_move_after_scenario in valve_move_after_scenarios.scenarios {
+                        if !search_state.only_open_actions {
+                            let mut scenario = Scenario {
+                                actions: vec![
+                                    Action::Move(current_valve.name.clone()),
+                                    current_valve.as_open_action(remaining_time),
+                                ],
+                                action_path: valve_move_after_scenario.action_path,
+                            };
+                            scenario
+                                .actions
+                                .append(&mut valve_move_after_scenario.actions);
+                            search_result.scenarios.push(scenario);
+                        } else {
+                            let mut scenario = Scenario {
+                                actions: vec![current_valve.as_open_action(remaining_time)],
+                                action_path: valve_move_after_scenario.action_path,
+                            };
+                            scenario
+                                .actions
+                                .append(&mut valve_move_after_scenario.actions);
+                            search_result.scenarios.push(scenario);
+                        }
+                    }
+                }
+            }
+            search_state.action_path = original_path.clone();
+        }
+
+        if call_id == 0 {
+            println!("Done in {} calls", search_state.call_counter);
+        }
+
+        search_result.scenarios.dedup();
+
+        search_state
+            .cache
+            .insert((current_valve.id, original_time), search_result.clone());
+
+        Some(search_result)
+    }
+}
+
+pub fn solve_1(input: &str) -> String {
+    let mut system = ValveSystem::from(input);
+
+    //println!("{:?}", system);
+
+    // println!(
+    //     "shortest path AA -> JJ: {:?}",
+    //     system.path_from_to(0, 9, &mut HashSet::new())
+    // );
+
+    if let Some(mut search_result) = system.scenarios(&mut SearchData {
+        current: 0,
+        time: 8,
+        seen_action_paths: HashSet::new(),
+        paths_cache: DistPathsCache::new(),
+        cache: ScenarioCache::new(),
+        only_open_actions: true,
+        action_path: "S".to_string(),
+        call_counter: 0,
+    }) {
+        search_result.scenarios.sort();
+        search_result.scenarios.reverse();
+
+        for (scenario_index, scenario) in search_result.scenarios.into_iter().enumerate() {
+            println!(
+                "Scenario #{}-{}, actions: {:?}",
+                scenario_index, scenario.action_path, scenario.actions
+            );
+        }
+    }
+
+    // let mut scenarios = system.valves[0].scenarios(
+    //     &system.valves,
+    //     5,
+    //     &mut HashSet::new(),
+    //     &mut DistPathsCache::new(),
+    //     &mut HashMap::new(),
+    //     &mut HashSet::new(),
+    //     true,
+    // );
+    // scenarios.sort();
+    // scenarios.reverse();
+
+    // for (scenario_index, scenario) in scenarios.into_iter().enumerate() {
+    //     println!("Scenario #{}, actions: {:?}", scenario_index, scenario);
+    // }
+
+    todo!()
+}
+pub fn solve_2(input: &str) -> String {
+    todo!()
+}
