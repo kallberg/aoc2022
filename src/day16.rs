@@ -4,7 +4,7 @@ use std::{collections::HashSet, hash::Hash};
 pub struct Edge {
     pub from: String,
     pub to: String,
-    pub dist: usize,
+    pub distance: usize,
 }
 
 impl Hash for Edge {
@@ -32,15 +32,88 @@ pub struct Graph {
     pub edges: HashSet<Edge>,
 }
 
+#[derive(Debug)]
+pub struct Route {
+    from: String,
+    to: String,
+    visits: HashSet<String>,
+    distance: usize,
+}
+
 impl Graph {
-    pub fn node_permutations(&self) {}
+    fn routes(&self, from: String) -> Vec<Route> {
+        let mut output = vec![];
+
+        for node in &self.nodes {
+            if node.id == from {
+                continue;
+            }
+
+            let Some(route) = self.shortest_route(&from, &node.id) else {
+                continue;
+            };
+
+            output.push(route);
+        }
+
+        output
+    }
+
+    fn shortest_route(&self, from: &String, to: &String) -> Option<Route> {
+        let mut edges_to: Vec<Edge> = self
+            .edges
+            .iter()
+            .filter(|edge| &edge.to == to)
+            .cloned()
+            .collect::<Vec<Edge>>();
+
+        edges_to.sort_by_key(|edge| edge.distance);
+        let closest_to = edges_to.first()?;
+
+        let mut edges_from: Vec<Edge> = self
+            .edges
+            .iter()
+            .filter(|edge| &edge.from == from)
+            .cloned()
+            .collect();
+
+        edges_from.sort_by_key(|edge| edge.distance);
+
+        let closest_from = edges_from.first()?;
+
+        let direct = self
+            .edges
+            .iter()
+            .find(|edge| &edge.from == from && &edge.to == to)?;
+
+        let mut visits = HashSet::new();
+        visits.insert(from.clone());
+        visits.insert(to.clone());
+
+        if direct.distance < closest_from.distance + closest_to.distance {
+            return Some(Route {
+                from: from.clone(),
+                to: to.clone(),
+                distance: direct.distance,
+                visits: HashSet::new(),
+            });
+        }
+
+        visits.insert(closest_from.to.clone());
+        visits.insert(closest_to.from.clone());
+
+        Some(Route {
+            from: to.clone(),
+            to: to.clone(),
+            visits,
+            distance: closest_from.distance + closest_to.distance,
+        })
+    }
 
     fn make_connections(&mut self) {
         let mut discovered = self.discover_edges();
 
         while !discovered.is_empty() {
-            println!("{:?}", discovered);
-
             self.edges = self.edges.union(&self.discover_edges()).cloned().collect();
 
             discovered = self.discover_edges();
@@ -61,7 +134,7 @@ impl Graph {
 
             let mut node = node.clone();
             self.nodes.remove(&node);
-            node.starting_cost = edge.dist;
+            node.starting_cost = edge.distance;
             self.nodes.insert(node);
         }
 
@@ -90,7 +163,7 @@ impl Graph {
                     let edge = Edge {
                         from: node.id.to_string(),
                         to: other_edge.to.clone(),
-                        dist: other_edge.dist + edge.dist,
+                        distance: other_edge.distance + edge.distance,
                     };
 
                     let Some(existing) = self.edges.get(&edge) else {
@@ -98,7 +171,7 @@ impl Graph {
                         continue;
                     };
 
-                    if existing.dist > edge.dist {
+                    if existing.distance > edge.distance {
                         output.remove(existing);
                         output.insert(edge);
                     }
@@ -146,7 +219,7 @@ impl From<&str> for Graph {
                 edge_set.insert(Edge {
                     from: valve_name.to_owned(),
                     to: connection,
-                    dist: 1,
+                    distance: 1,
                 });
             }
 
@@ -163,31 +236,12 @@ impl From<&str> for Graph {
 pub fn solve_1(input: &str) -> String {
     let mut graph = Graph::from(input);
 
+    let routes = graph.routes("FF".into());
+
+    routes.iter().for_each(|route| println!("{:?}", route));
+
     todo!()
 }
 pub fn solve_2(input: &str) -> String {
     "todo".to_string()
-}
-
-fn permute(choices: &Vec<String>) -> Vec<Vec<String>> {
-    if choices.is_empty() {
-        // base case: return an empty permutation if there are no choices
-        return vec![vec![]];
-    }
-
-    // recursive case: generate all permutations by adding one element at a time
-    let mut permutations = Vec::new();
-    for (i, c) in choices.iter().enumerate() {
-        // get all permutations without c
-        let mut sub_choices = choices.to_vec();
-        sub_choices.remove(i);
-        let sub_permutations = permute(&sub_choices);
-
-        // add c to all permutations
-        for mut permutation in sub_permutations {
-            permutation.insert(0, c.clone());
-            permutations.push(permutation);
-        }
-    }
-    permutations
 }
