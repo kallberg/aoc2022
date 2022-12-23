@@ -1,5 +1,7 @@
 use std::{cmp::min, collections::HashMap, hash::Hash};
 
+type SolutionCache = HashMap<SolverInput, usize>;
+
 #[derive(Clone)]
 pub struct Valve {
     pub id: usize,
@@ -13,8 +15,6 @@ pub struct ValveSystem {
     pub names: Vec<String>,
     pub flow_rates: Vec<usize>,
     pub distances: Vec<Vec<usize>>,
-    pub solution_cache: HashMap<SolverInput, usize>,
-    pub elephant_solution_cache: HashMap<ElephantSolverInput, usize>,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
@@ -24,55 +24,33 @@ pub struct SolverInput {
     pub visited_mask: u64,
 }
 
-#[derive(Eq, Clone)]
-pub struct ElephantSolverInput {
-    pub position: usize,
-    pub time_left: usize,
-    pub elephant_position: usize,
-    pub elephant_time_left: usize,
-    pub visited_mask: u64,
+pub struct ValveSystemSolver {
+    pub system: ValveSystem,
+    pub cache: SolutionCache,
 }
 
-impl Hash for ElephantSolverInput {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        ((self.position + 1) * (self.elephant_position + 1)).hash(state);
-        ((self.time_left + 1) * (self.elephant_time_left + 1)).hash(state);
-        self.visited_mask.hash(state);
-    }
-}
-
-impl PartialEq for ElephantSolverInput {
-    fn eq(&self, other: &Self) -> bool {
-        (self.position + 1) * (self.elephant_position + 1)
-            == (other.position + 1) * (other.elephant_position + 1)
-            && (self.time_left + 1) * (self.elephant_time_left + 1)
-                == (other.time_left + 1) * (other.elephant_time_left + 1)
-            && self.visited_mask == other.visited_mask
-    }
-}
-
-impl ValveSystem {
-    pub fn solve(&mut self, input: SolverInput) -> usize {
-        if let Some(cached) = self.solution_cache.get(&input) {
+impl ValveSystemSolver {
+    fn solve_by_input(&mut self, input: SolverInput) -> usize {
+        if let Some(cached) = self.cache.get(&input) {
             return *cached;
         }
 
         let mut best_score = 0;
 
-        for index in 0..self.size {
+        for index in 0..self.system.size {
             let visit_bit = 1u64 << index;
 
             if input.visited_mask & visit_bit != 0 {
                 continue;
             }
 
-            let flow_rate = self.flow_rates[index];
+            let flow_rate = self.system.flow_rates[index];
 
             if flow_rate == 0 {
                 continue;
             }
 
-            let distance = self.distances[input.position][index];
+            let distance = self.system.distances[input.position][index];
             let time_spent = distance + 1;
 
             if time_spent >= input.time_left {
@@ -90,7 +68,7 @@ impl ValveSystem {
                 solver_next.time_left = time_left;
                 solver_next.position = index;
 
-                score += self.solve(solver_next);
+                score += self.solve_by_input(solver_next);
             }
 
             if score > best_score {
@@ -98,13 +76,23 @@ impl ValveSystem {
             }
         }
 
-        self.solution_cache.insert(input, best_score);
+        self.cache.insert(input, best_score);
 
         best_score
     }
 
-    fn elephant_solve(&mut self, input: SolverInput) -> usize {
-        let mask = (1u64 << self.size) - 1;
+    pub fn solve(&mut self) -> usize {
+        self.system = self.system.as_simplified();
+
+        self.solve_by_input(SolverInput {
+            position: self.system.start(),
+            time_left: 30,
+            visited_mask: 0,
+        })
+    }
+
+    fn elephant_solve_by_input(&mut self, input: SolverInput) -> usize {
+        let mask = (1u64 << self.system.size) - 1;
 
         let halfway = (mask + 1) / 2;
 
@@ -117,7 +105,7 @@ impl ValveSystem {
             elephant.visited_mask = mask ^ index;
             regular.visited_mask = index;
 
-            let score = self.solve(regular) + (self.solve(elephant));
+            let score = self.solve_by_input(regular) + self.solve_by_input(elephant);
 
             if score > best_score {
                 best_score = score;
@@ -127,17 +115,26 @@ impl ValveSystem {
         best_score
     }
 
+    pub fn elephant_solve(&mut self) -> usize {
+        self.system = self.system.as_simplified();
+
+        self.elephant_solve_by_input(SolverInput {
+            position: self.system.start(),
+            time_left: 26,
+            visited_mask: 0,
+        })
+    }
+}
+
+impl ValveSystem {
     fn as_simplified(&self) -> Self {
         let start = self.start();
 
-        let mut added_index = 0;
         let mut output = Self {
             distances: vec![],
             names: vec![],
             size: 0,
             flow_rates: vec![],
-            solution_cache: HashMap::new(),
-            elephant_solution_cache: HashMap::new(),
         };
 
         for index in 0..self.size {
@@ -188,8 +185,6 @@ impl From<&str> for ValveSystem {
             size: 0,
             names: vec![],
             distances: vec![],
-            solution_cache: HashMap::new(),
-            elephant_solution_cache: HashMap::new(),
             flow_rates: vec![],
         };
 
@@ -280,42 +275,18 @@ fn floyd_warshall(graph: &Vec<Vec<Option<usize>>>) -> Vec<Vec<Option<usize>>> {
 }
 
 pub fn solve_1(input: &str) -> String {
-    let mut system = ValveSystem::from(input);
+    let mut solver = ValveSystemSolver {
+        cache: HashMap::new(),
+        system: ValveSystem::from(input),
+    };
 
-    let mut start = 0;
-
-    let start_name = "AA".to_string();
-
-    for name in &system.names {
-        if start_name.eq(name) {
-            break;
-        }
-
-        start += 1;
-    }
-
-    let solution = system
-        .solve(SolverInput {
-            position: start,
-            time_left: 30,
-            visited_mask: 0,
-        })
-        .to_string();
-
-    solution
+    solver.solve().to_string()
 }
 pub fn solve_2(input: &str) -> String {
-    let mut system = ValveSystem::from(input);
+    let mut solver = ValveSystemSolver {
+        cache: HashMap::new(),
+        system: ValveSystem::from(input),
+    };
 
-    system = system.as_simplified();
-
-    let solution = system
-        .elephant_solve(SolverInput {
-            position: system.start(),
-            time_left: 26,
-            visited_mask: 0,
-        })
-        .to_string();
-
-    solution
+    solver.elephant_solve().to_string()
 }
