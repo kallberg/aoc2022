@@ -1,196 +1,90 @@
-use std::{collections::HashSet, hash::Hash};
+use std::{cmp::min, collections::HashMap, time};
 
-#[derive(Eq, Clone, Debug)]
-pub struct Edge {
-    pub from: String,
-    pub to: String,
-    pub distance: usize,
+#[derive(Clone)]
+pub struct Valve {
+    pub id: usize,
+    pub name: String,
+    pub flow_rate: usize,
 }
 
-impl Hash for Edge {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.from.hash(state);
-        self.to.hash(state);
-    }
+#[derive(Clone)]
+pub struct ValveSystem {
+    pub size: usize,
+    pub names: Vec<String>,
+    pub flow_rates: Vec<usize>,
+    pub distances: Vec<Vec<usize>>,
+    pub solution_cache: HashMap<SolverInput, usize>,
 }
 
-impl PartialEq for Edge {
-    fn eq(&self, other: &Self) -> bool {
-        self.from == other.from && self.to == other.to
-    }
+#[derive(PartialEq, Eq, Hash, Clone)]
+pub struct SolverInput {
+    pub position: usize,
+    pub time_left: usize,
+    pub visited_mask: u64,
 }
 
-#[derive(Eq, PartialEq, Hash, Clone)]
-pub struct Node {
-    pub id: String,
-    pub value: usize,
-    pub starting_cost: usize,
-}
+impl ValveSystem {
+    pub fn solve(&mut self, input: SolverInput) -> usize {
+        if let Some(cached) = self.solution_cache.get(&input) {
+            return *cached;
+        }
 
-pub struct Graph {
-    pub nodes: HashSet<Node>,
-    pub edges: HashSet<Edge>,
-}
+        let mut best_score = 0;
 
-#[derive(Debug)]
-pub struct Route {
-    from: String,
-    to: String,
-    visits: HashSet<String>,
-    distance: usize,
-}
+        for index in 0..self.size {
+            let flow_rate = self.flow_rates[index];
 
-impl Graph {
-    fn routes(&self, from: String) -> Vec<Route> {
-        let mut output = vec![];
+            let visit_bit = 1u64 << index;
 
-        for node in &self.nodes {
-            if node.id == from {
+            if input.visited_mask & visit_bit != 0 || flow_rate == 0 || index == input.position {
                 continue;
             }
 
-            let Some(route) = self.shortest_route(&from, &node.id) else {
-                continue;
-            };
+            let distance = self.distances[input.position][index];
+            let time_spent = distance + 1;
 
-            output.push(route);
-        }
-
-        output
-    }
-
-    fn shortest_route(&self, from: &String, to: &String) -> Option<Route> {
-        let mut edges_to: Vec<Edge> = self
-            .edges
-            .iter()
-            .filter(|edge| &edge.to == to)
-            .cloned()
-            .collect::<Vec<Edge>>();
-
-        edges_to.sort_by_key(|edge| edge.distance);
-        let closest_to = edges_to.first()?;
-
-        let mut edges_from: Vec<Edge> = self
-            .edges
-            .iter()
-            .filter(|edge| &edge.from == from)
-            .cloned()
-            .collect();
-
-        edges_from.sort_by_key(|edge| edge.distance);
-
-        let closest_from = edges_from.first()?;
-
-        let direct = self
-            .edges
-            .iter()
-            .find(|edge| &edge.from == from && &edge.to == to)?;
-
-        let mut visits = HashSet::new();
-        visits.insert(from.clone());
-        visits.insert(to.clone());
-
-        if direct.distance < closest_from.distance + closest_to.distance {
-            return Some(Route {
-                from: from.clone(),
-                to: to.clone(),
-                distance: direct.distance,
-                visits: HashSet::new(),
-            });
-        }
-
-        visits.insert(closest_from.to.clone());
-        visits.insert(closest_to.from.clone());
-
-        Some(Route {
-            from: to.clone(),
-            to: to.clone(),
-            visits,
-            distance: closest_from.distance + closest_to.distance,
-        })
-    }
-
-    fn make_connections(&mut self) {
-        let mut discovered = self.discover_edges();
-
-        while !discovered.is_empty() {
-            self.edges = self.edges.union(&self.discover_edges()).cloned().collect();
-
-            discovered = self.discover_edges();
-        }
-    }
-
-    fn simplify(&mut self, start_node: String) {
-        let nodes = self.nodes.clone();
-
-        for edge in &self.edges {
-            if edge.from != start_node {
+            if time_spent >= input.time_left {
                 continue;
             }
 
-            let Some(node) = nodes.iter().find(|node| node.id == edge.to) else {
-                continue;
-            };
+            let time_left = input.time_left - time_spent;
 
-            let mut node = node.clone();
-            self.nodes.remove(&node);
-            node.starting_cost = edge.distance;
-            self.nodes.insert(node);
-        }
+            let mut score = flow_rate * time_left;
 
-        for node in nodes {
-            if node.value == 0 {
-                self.nodes.remove(&node);
+            if time_left > 2 {
+                let mut solver_next = input.clone();
 
-                self.edges
-                    .retain(|edge| edge.from != node.id && edge.to != node.id);
+                solver_next.visited_mask |= visit_bit;
+                solver_next.time_left = time_left;
+                solver_next.position = index;
+
+                score += self.solve(solver_next);
             }
-        }
-    }
 
-    fn discover_edges(&self) -> HashSet<Edge> {
-        let mut output = HashSet::new();
-
-        let edges = self.edges.clone();
-
-        for node in &self.nodes {
-            for edge in &edges {
-                for other_edge in &edges {
-                    if other_edge.eq(edge) {
-                        continue;
-                    }
-
-                    let edge = Edge {
-                        from: node.id.to_string(),
-                        to: other_edge.to.clone(),
-                        distance: other_edge.distance + edge.distance,
-                    };
-
-                    let Some(existing) = self.edges.get(&edge) else {
-                        output.insert(edge);
-                        continue;
-                    };
-
-                    if existing.distance > edge.distance {
-                        output.remove(existing);
-                        output.insert(edge);
-                    }
-                }
+            if score > best_score {
+                best_score = score;
             }
         }
 
-        output
+        self.solution_cache.insert(input, best_score);
+
+        best_score
     }
 }
 
-impl From<&str> for Graph {
+impl From<&str> for ValveSystem {
     fn from(value: &str) -> Self {
         let mut output = Self {
-            edges: HashSet::new(),
-            nodes: HashSet::new(),
+            size: 0,
+            names: vec![],
+            distances: vec![],
+            solution_cache: HashMap::new(),
+            flow_rates: vec![],
         };
 
-        for line in value.lines() {
+        let mut neighbours = vec![];
+
+        value.lines().for_each(|line| {
             let line = line.strip_prefix("Valve ").unwrap();
             let (valve_name, line) = line.split_once(' ').unwrap();
             let (flow_rate_str, line) = line
@@ -207,40 +101,93 @@ impl From<&str> for Graph {
             }
             let valve_name = valve_name.to_string();
 
-            output.nodes.insert(Node {
-                id: valve_name.to_owned(),
-                value: flow_rate_str.parse().unwrap(),
-                starting_cost: 0,
-            });
+            let flow_rate = flow_rate_str.parse().unwrap();
 
-            let mut edge_set = HashSet::new();
+            output.names.push(valve_name);
+            output.flow_rates.push(flow_rate);
+            output.size += 1;
 
-            for connection in connections {
-                edge_set.insert(Edge {
-                    from: valve_name.to_owned(),
-                    to: connection,
-                    distance: 1,
-                });
+            neighbours.push(connections);
+        });
+
+        let mut distances = vec![vec![None; output.size]; output.size];
+
+        for (index, neighbours) in neighbours.iter().cloned().enumerate() {
+            for neighbour in neighbours {
+                let Some((valve_id, _)) = output
+                    .names
+                    .clone()
+                    .into_iter()
+                    .enumerate()
+                    .find(|(_, name)| neighbour.eq(name)) else {
+                        continue;
+                    };
+
+                distances[index][valve_id] = Some(1usize);
             }
-
-            output.edges = output.edges.union(&edge_set).cloned().collect();
         }
 
-        output.make_connections();
-        output.simplify("AA".into());
+        let distances = floyd_warshall(&distances);
+        let distances: Vec<Vec<usize>> = distances
+            .iter()
+            .map(|row| {
+                row.iter()
+                    .map(|dist| dist.expect("distance to all nodes known"))
+                    .collect()
+            })
+            .collect();
+
+        output.distances = distances;
 
         output
     }
 }
 
+fn floyd_warshall(graph: &Vec<Vec<Option<usize>>>) -> Vec<Vec<Option<usize>>> {
+    let n = graph.len();
+    let mut distance = graph.clone();
+
+    for k in 0..n {
+        for i in 0..n {
+            for j in 0..n {
+                if let (Some(x), Some(y)) = (distance[i][k], distance[k][j]) {
+                    if let Some(z) = distance[i][j] {
+                        distance[i][j] = Some(min(z, x + y));
+                    } else {
+                        distance[i][j] = Some(x + y);
+                    }
+                }
+            }
+        }
+    }
+
+    distance
+}
+
 pub fn solve_1(input: &str) -> String {
-    let mut graph = Graph::from(input);
+    let mut system = ValveSystem::from(input);
 
-    let routes = graph.routes("FF".into());
+    let mut start = 0;
 
-    routes.iter().for_each(|route| println!("{:?}", route));
+    let start_name = "AA".to_string();
 
-    todo!()
+    for name in &system.names {
+        if start_name.eq(name) {
+            break;
+        }
+
+        start += 1;
+    }
+
+    let solution = system
+        .solve(SolverInput {
+            position: start,
+            time_left: 30,
+            visited_mask: 0,
+        })
+        .to_string();
+
+    solution
 }
 pub fn solve_2(input: &str) -> String {
     "todo".to_string()
