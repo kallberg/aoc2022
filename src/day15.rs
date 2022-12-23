@@ -1,6 +1,6 @@
 use std::{
     cmp::{max, min},
-    iter::repeat,
+    collections::HashSet,
 };
 
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
@@ -33,7 +33,7 @@ pub struct ExclusionZone {
     pub y: isize,
     pub width: usize,
     pub height: usize,
-    pub beacons: Vec<(isize, isize)>,
+    pub beacons: HashSet<(isize, isize)>,
     pub sensors: Vec<Sensor>,
 }
 
@@ -211,7 +211,7 @@ impl From<&str> for ExclusionZone {
             };
 
             output.sensors.push(sensor);
-            output.beacons.push((beacon_x, beacon_y));
+            output.beacons.insert((beacon_x, beacon_y));
         }
 
         let width = (max_x - output.x) as usize + 1;
@@ -262,10 +262,10 @@ pub fn solve_2(input: &str) -> String {
 
         tuning_frequency.to_string()
     } else {
-        // let beacon = zone
-        //     .find_beacon(0, 0, 4000000, 4000000)
-        //     .expect("find beacon");
-        let beacon = zone.math_find_beacon().expect("find beacon");
+        let beacon = zone
+            .find_beacon(0, 0, 4000000, 4000000)
+            .expect("find beacon");
+        //let beacon = zone.math_find_beacon().expect("find beacon");
 
         let tuning_frequency = beacon.0 * 4000000 + beacon.1;
 
