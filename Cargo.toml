@@ -7,3 +7,12 @@ version = "2022.12.12"
 
 [dependencies]
 rayon = "1.6.1"
+
+[profile.release]
+debug = true
+
+[profile.bench]
+debug = true
+
+[rust]
+debuginfo-level = 1
