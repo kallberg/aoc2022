@@ -1,669 +1,234 @@
-use std::{
-    collections::{HashMap, VecDeque},
-    fmt::Display,
-};
+use std::collections::{HashMap, HashSet};
 
 #[derive(Clone)]
-pub enum Shape {
-    One,
-    Two,
-    Three,
-    Four,
-    Five,
+pub struct Shape {
+    parts: HashSet<(u64, u64)>,
 }
 
-impl Default for Shape {
-    fn default() -> Self {
-        Shape::One
+impl Shape {
+    fn one(y: u64) -> Self {
+        let mut shape = Self {
+            parts: HashSet::new(),
+        };
+
+        shape.parts.insert((2, y));
+        shape.parts.insert((3, y));
+        shape.parts.insert((4, y));
+        shape.parts.insert((5, y));
+
+        shape
     }
-}
 
-#[derive(Clone, Default)]
-pub struct Rock {
-    pub start: usize,
-    pub end: usize,
-    pub data: VecDeque<u64>,
-    pub shape: Shape,
-}
+    fn two(y: u64) -> Self {
+        let mut shape = Self {
+            parts: HashSet::new(),
+        };
 
-impl Rock {
-    pub fn intersects(&self, other: &Rock) -> bool {
-        let start = self.start.max(other.start);
-        let end = self.end.min(other.end);
+        shape.parts.insert((3, y));
 
-        if start > end {
-            return false;
-        }
+        shape.parts.insert((2, y + 1));
+        shape.parts.insert((3, y + 1));
+        shape.parts.insert((4, y + 1));
 
-        for page in start..=end {
-            for x in 0..7 {
-                let self_index = (page - self.start) * 7 + x;
-                let other_index = (page - other.start) * 7 + x;
+        shape.parts.insert((3, y + 2));
 
-                if self.data[self_index] & other.data[other_index] > 0 {
-                    return true;
+        shape
+    }
+
+    fn three(y: u64) -> Self {
+        let mut shape = Self {
+            parts: HashSet::new(),
+        };
+
+        shape.parts.insert((4, y + 2));
+        shape.parts.insert((4, y + 1));
+        shape.parts.insert((4, y));
+        shape.parts.insert((3, y));
+        shape.parts.insert((2, y));
+
+        shape
+    }
+
+    fn four(y: u64) -> Self {
+        let mut shape = Self {
+            parts: HashSet::new(),
+        };
+
+        shape.parts.insert((2, y + 3));
+        shape.parts.insert((2, y + 2));
+        shape.parts.insert((2, y + 1));
+        shape.parts.insert((2, y));
+
+        shape
+    }
+
+    fn five(y: u64) -> Self {
+        let mut shape = Self {
+            parts: HashSet::new(),
+        };
+
+        shape.parts.insert((2, y + 1));
+        shape.parts.insert((3, y + 1));
+        shape.parts.insert((2, y));
+        shape.parts.insert((3, y));
+
+        shape
+    }
+
+    fn apply_jet(&mut self, jet: char) -> bool {
+        assert!(jet == '<' || jet == '>');
+
+        let mut new_parts = HashSet::new();
+
+        for (x, y) in &self.parts {
+            let (x, y) = (*x, *y);
+            if jet == '<' {
+                if x > 0 {
+                    new_parts.insert((x - 1, y));
+                } else {
+                    return false;
                 }
-            }
-        }
-
-        false
-    }
-
-    fn can_fall(&self) -> bool {
-        if self.start > 0 {
-            return true;
-        }
-
-        let floor_bit = 1;
-
-        for index in 0..7 {
-            if self.data[index] & floor_bit != 0 {
+            } else if x < 6 {
+                new_parts.insert((x + 1, y));
+            } else {
                 return false;
             }
         }
 
-        return true;
-    }
-
-    fn can_apply_jet(&self, jet: Jet) -> bool {
-        for page in self.start..=self.end {
-            let index = (page - self.start) * 7;
-
-            let touches_wall = match jet {
-                Jet::Left => self.data[index] != 0,
-                Jet::Right => self.data[index + 6] != 0,
-            };
-
-            if touches_wall {
-                return false;
-            }
-        }
+        self.parts = new_parts;
 
         true
     }
 
-    pub fn fall(&mut self) -> bool {
-        if !self.can_fall() {
-            return false;
-        }
+    fn move_down(&mut self) {
+        let mut new_parts = HashSet::new();
 
-        let mut carry = 0;
-
-        for page in (self.start..=self.end).rev() {
-            let mut carry_next = 0;
-            for x in 0..7 {
-                let index = (page - self.start) * 7 + x;
-                let carry_bit = 1 << x;
-                let carried = carry & carry_bit != 0;
-                let bottom_bit = (self.data[index] & 1);
-
-                carry_next |= bottom_bit << x;
-                self.data[index] >>= 1;
-
-                if carried {
-                    self.data[index] |= 1 << 63;
-                }
-            }
-            carry = carry_next;
-        }
-
-        if carry != 0 && self.start > 0 {
-            let mut data = VecDeque::from(vec![0u64; 7]);
-
-            for carry_index in 0..7 {
-                let carry_bit = 1 << carry_index;
-                let carried = carry & carry_bit != 0;
-                if carried {
-                    data[carry_index] = 1 << 63;
-                }
-            }
-
-            data.append(&mut self.data);
-            self.data = data;
-            self.start -= 1;
-        }
-
-        self.trim();
-
-        true
-    }
-
-    fn fill(&mut self, page: usize, amount: usize) {
-        for x in 0..7 {
-            let index = (page - self.start) * 7;
-
-            for bit_index in 0..amount {
-                self.data[index + x] |= 1 << bit_index;
-            }
-        }
-    }
-
-    pub fn set(&mut self, x: u8, y: u64) {
-        let page = y / 64;
-        let page_y = y % 64;
-        let index = page as usize * 7 + x as usize;
-        let bit = 1 << page_y;
-        self.data[index] |= bit;
-    }
-
-    pub fn as_char(&self, page: usize, x: u8, y: u64, falling: bool) -> char {
-        if page > self.end || page < self.start {
-            return '.';
-        }
-
-        let index = (page - self.start) * 7 + x as usize;
-        let bit = 1 << y;
-
-        if self.data[index] & bit != 0 {
-            return match falling {
-                true => '@',
-                false => '#',
-            };
-        }
-
-        return '.';
-    }
-
-    pub fn move_jet(&mut self, jet: Jet) {
-        if !self.can_apply_jet(jet) {
-            return;
-        }
-
-        match jet {
-            Jet::Left => {
-                self.data.rotate_left(1);
-            }
-            Jet::Right => {
-                self.data.rotate_right(1);
-            }
-        }
-    }
-
-    pub fn piece_one(x: u8, y: u64) -> Rock {
-        let start = (y / 64) as usize;
-        let end = start;
-
-        let mut piece = Rock {
-            data: VecDeque::from(vec![0u64; 7]),
-            end,
-            start,
-            ..Default::default()
-        };
-
-        let local_y = y % 64;
-
-        piece.set(x, local_y);
-        piece.set(x + 1, local_y);
-        piece.set(x + 2, local_y);
-        piece.set(x + 3, local_y);
-
-        piece
-    }
-
-    pub fn piece_two(x: u8, y: u64) -> Rock {
-        let start = (y / 64) as usize;
-        let end = ((y + 2) / 64) as usize;
-
-        let data = VecDeque::from(if start != end {
-            vec![0u64; 14]
-        } else {
-            vec![0u64; 7]
-        });
-
-        let mut piece = Rock {
-            data,
-            end,
-            start,
-            ..Default::default()
-        };
-
-        let local_y = y % 64;
-
-        piece.set(x + 1, local_y);
-
-        piece.set(x, local_y + 1);
-        piece.set(x + 1, local_y + 1);
-        piece.set(x + 2, local_y + 1);
-
-        piece.set(x + 1, local_y + 2);
-
-        piece
-    }
-
-    pub fn piece_three(x: u8, y: u64) -> Rock {
-        let start = (y / 64) as usize;
-        let end = ((y + 2) / 64) as usize;
-
-        let data = VecDeque::from(if start != end {
-            vec![0u64; 14]
-        } else {
-            vec![0u64; 7]
-        });
-
-        let mut piece = Rock {
-            data,
-            end,
-            start,
-            ..Default::default()
-        };
-
-        let local_y = y % 64;
-
-        // ###
-        piece.set(x, local_y);
-        piece.set(x + 1, local_y);
-        piece.set(x + 2, local_y);
-
-        //   #
-        // . #
-        piece.set(x + 2, local_y + 1);
-        piece.set(x + 2, local_y + 2);
-
-        piece
-    }
-
-    pub fn piece_four(x: u8, y: u64) -> Rock {
-        let start = (y / 64) as usize;
-        let end = ((y + 3) / 64) as usize;
-
-        let data = VecDeque::from(if start != end {
-            vec![0u64; 14]
-        } else {
-            vec![0u64; 7]
-        });
-
-        let mut piece = Rock {
-            data,
-            end,
-            start,
-            ..Default::default()
-        };
-
-        let local_y = y % 64;
-
-        // #
-        // #
-        // #
-        // #
-        piece.set(x, local_y + 0);
-        piece.set(x, local_y + 1);
-        piece.set(x, local_y + 2);
-        piece.set(x, local_y + 3);
-
-        piece
-    }
-
-    pub fn piece_five(x: u8, y: u64) -> Rock {
-        let start = (y / 64) as usize;
-        let end = ((y + 1) / 64) as usize;
-
-        let data = VecDeque::from(if start != end {
-            vec![0u64; 14]
-        } else {
-            vec![0u64; 7]
-        });
-
-        let mut piece = Rock {
-            data,
-            end,
-            start,
-            ..Default::default()
-        };
-
-        let local_y = y % 64;
-
-        // ##
-        // ##
-        piece.set(x + 0, local_y + 0);
-        piece.set(x + 1, local_y + 0);
-        piece.set(x + 0, local_y + 1);
-        piece.set(x + 1, local_y + 1);
-
-        piece
-    }
-
-    fn top(&self) -> u64 {
-        for page in (self.start..=self.end).rev() {
-            let index = (page - self.start) * 7;
-            let mut max = 0;
-
-            for x in 0..7 {
-                if self.data[index + x] == 0 {
-                    continue;
-                }
-
-                let mut local_max = 0;
-                let mut copy = self.data[index + x];
-
-                while copy != 0 {
-                    copy >>= 1;
-                    local_max += 1;
-                }
-
-                max = local_max.max(max);
-            }
-
-            if max > 0 {
-                return page as u64 * 64 + max;
+        for (x, y) in &self.parts {
+            let (x, y) = (*x, *y);
+            if y > 0 {
+                new_parts.insert((x, y - 1));
+            } else {
+                return;
             }
         }
 
-        0
+        self.parts = new_parts;
     }
 
-    fn top_layer_empty(&mut self) -> bool {
-        let index = (self.end - self.start) * 7;
+    fn move_up(&mut self) {
+        let mut new_parts = HashSet::new();
 
-        for x in 0..7 {
-            if self.data[index + x] > 0 {
-                return false;
-            }
+        for (x, y) in &self.parts {
+            let (x, y) = (*x, *y);
+            new_parts.insert((x, y + 1));
         }
 
-        true
-    }
-
-    fn pop_top_layer(&mut self) {
-        if self.end > 0 && self.end > self.start {
-            self.data.resize(self.data.len() - 7, 0);
-            self.end -= 1;
-        }
-    }
-
-    fn trim(&mut self) {
-        if self.end == self.start {
-            return;
-        }
-
-        if self.top_layer_empty() {
-            self.pop_top_layer();
-        }
-    }
-
-    fn combine(&mut self, other: &Rock) {
-        while self.start > other.start {
-            for _ in 0..7 {
-                self.data.push_front(0)
-            }
-            self.start -= 1;
-        }
-
-        while self.end < other.end {
-            for _ in 0..7 {
-                self.data.push_back(0)
-            }
-            self.end += 1;
-        }
-
-        for page in other.start..=other.end {
-            let self_index = (page - self.start) * 7;
-            let other_index = (page - other.start) * 7;
-
-            for x in 0..7 {
-                self.data[self_index + x] |= other.data[other_index + x];
-            }
-        }
-    }
-
-    fn read(&self, x: u8, y: u64, bits: usize) -> u64 {
-        let page_start = y as usize / 64;
-        let page_end = if y % 64 != 0 {
-            page_start + 1
-        } else {
-            page_start
-        };
-
-        let start_offset = y % 64;
-        let end_offset = 63 - start_offset;
-
-        let mut data = self.data[page_start + x as usize] >> start_offset;
-        data |= self.data[page_end + x as usize] << end_offset;
-
-        let bit_shift = 64 - bits;
-
-        data <<= bit_shift;
-        data >>= bit_shift;
-
-        data
+        self.parts = new_parts;
     }
 }
 
-fn kmp_search(haystack: &[u64], needle: &[u64]) -> Option<usize> {
-    // Preprocess the needle to create the failure function
-    let mut failure_function = vec![0; needle.len()];
-    let mut j = 0;
-    for i in 1..needle.len() {
-        while j > 0 && needle[j] != needle[i] {
-            j = failure_function[j - 1];
-        }
-        if needle[j] == needle[i] {
-            j += 1;
-        }
-        failure_function[i] = j;
-    }
+fn fingerprint<'a, R>(rocks: R, top: u64, depth: u64) -> Vec<(u64, u64)>
+where
+    R: IntoIterator<Item = &'a (u64, u64)>,
+{
+    let mut fingerprint = vec![];
 
-    // Search for the needle in the haystack
-    let mut j = 0;
-    for i in 0..haystack.len() {
-        while j > 0 && haystack[i] != needle[j] {
-            j = failure_function[j - 1];
-        }
-        if haystack[i] == needle[j] {
-            j += 1;
-        }
-        if j == needle.len() {
-            return Some(i - j + 1);
+    for (x, y) in rocks {
+        if top - *y <= depth {
+            fingerprint.push((*x, top - *y));
         }
     }
 
-    // Return None if the needle is not found
-    None
+    fingerprint.sort();
+
+    fingerprint
 }
 
-impl Display for Rock {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for page in (self.start..=self.end).rev() {
-            for y in (0..64).rev() {
-                write!(f, "|")?;
-                for x in 0..7 {
-                    let index = (page - self.start) * 7 + x;
-                    let bit = 1 << y;
-                    let value = self.data[index] & bit != 0;
+pub fn solve(input: &str, total_shapes: u64) -> u64 {
+    let chars: Vec<char> = input.chars().collect();
+    let jets = input.len() as u64;
+    let mut shape_counter = 0u64;
+    let mut jet_counter = 0u64;
+    let mut top = 0;
+    let mut added = 0;
+    let mut rocks: HashSet<(u64, u64)> = HashSet::new();
+    rocks.insert((0, 0));
+    rocks.insert((1, 0));
+    rocks.insert((2, 0));
+    rocks.insert((3, 0));
+    rocks.insert((4, 0));
+    rocks.insert((5, 0));
+    rocks.insert((6, 0));
 
-                    match value {
-                        true => write!(f, "#"),
-                        false => write!(f, "."),
-                    }?;
-                }
-                writeln!(f, "|")?;
-            }
-        }
-        writeln!(f, "+-------+")?;
+    type Key = (usize, usize, Vec<(u64, u64)>);
 
-        Ok(())
-    }
-}
+    let mut cache = HashMap::<Key, (u64, u64)>::new();
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum Jet {
-    Left,
-    Right,
-}
+    while shape_counter < total_shapes {
+        let shape_index = (shape_counter % 5) as usize;
+        shape_counter += 1;
 
-#[derive(Clone, Default)]
-pub struct RockFallSolver {
-    pub pattern: Vec<Jet>,
-    pub chamber: Rock,
-    pub fall_counter: usize,
-    pub jet_counter: usize,
-    pub falling: Rock,
-    pub max_fall: usize,
-    pub cache: HashMap<(VecDeque<u64>, Shape), u64>,
-}
+        let start_y = top + 4;
 
-impl RockFallSolver {
-    #[inline(never)]
-    fn next_rock(&mut self) {
-        let top: u64 = self.chamber.top();
-        let x = 2;
-        let y = top + 3;
-
-        let rock_index = self.fall_counter % 5;
-        self.fall_counter += 1;
-
-        let rock = match rock_index {
-            0 => Rock::piece_one(x, y),
-            1 => Rock::piece_two(x, y),
-            2 => Rock::piece_three(x, y),
-            3 => Rock::piece_four(x, y),
-            4 => Rock::piece_five(x, y),
+        let mut shape = match shape_index {
+            0 => Shape::one(start_y),
+            1 => Shape::two(start_y),
+            2 => Shape::three(start_y),
+            3 => Shape::four(start_y),
+            4 => Shape::five(start_y),
             _ => unreachable!(),
         };
-        self.falling = rock;
-    }
-    #[inline(never)]
-    pub fn step(&mut self) {
-        let pattern_index = self.jet_counter % self.pattern.len();
-        self.jet_counter += 1;
-        let jet = self.pattern[pattern_index];
 
-        let mut falling_backup = self.falling.clone();
+        loop {
+            let jet_index = (jet_counter % jets) as usize;
 
-        self.falling.move_jet(jet);
+            let jet = chars[jet_index];
+            jet_counter += 1;
 
-        let jet_valid = !self.chamber.intersects(&self.falling);
+            let copy = shape.clone();
+            let moved = shape.apply_jet(jet);
 
-        if !jet_valid {
-            self.falling = falling_backup;
-        }
+            if moved && !shape.parts.is_disjoint(&rocks) {
+                shape = copy;
+            }
 
-        falling_backup = self.falling.clone();
+            shape.move_down();
 
-        if !self.falling.fall() {
-            self.chamber.combine(&self.falling);
-            return self.next_rock();
-        }
+            if !shape.parts.is_disjoint(&rocks) {
+                shape.move_up();
+                rocks.extend(shape.parts);
 
-        let intersected = self.chamber.intersects(&self.falling);
+                let max_rock = rocks.iter().map(|(_, y)| *y).max();
 
-        if intersected {
-            self.chamber.combine(&falling_backup);
-            return self.next_rock();
-        }
-    }
+                top = max_rock.unwrap();
 
-    #[inline(never)]
-    pub fn step_rock(&mut self) {
-        let rock_count = self.fall_counter;
+                let key: Key = (jet_index, shape_index, fingerprint(&rocks, top, 40));
 
-        while self.fall_counter - rock_count < 1 {
-            self.step();
-        }
-    }
-}
+                if let Some(cache_hit) = cache.get(&key) {
+                    let (old_shape_counter, old_top) = *cache_hit;
 
-pub fn solver(input: &str) -> RockFallSolver {
-    let pattern: Vec<Jet> = input
-        .chars()
-        .filter_map(|char| match char {
-            '<' => Some(Jet::Left),
-            '>' => Some(Jet::Right),
-            _ => None,
-        })
-        .collect();
-
-    let mut solver = RockFallSolver {
-        pattern,
-        chamber: Rock {
-            start: 0,
-            end: 0,
-            data: VecDeque::from(vec![0u64; 7]),
-            ..Default::default()
-        },
-        falling: Rock {
-            start: 0,
-            end: 0,
-            data: VecDeque::new(),
-            ..Default::default()
-        },
-        ..Default::default()
-    };
-
-    solver.next_rock();
-
-    solver
-}
-
-impl Display for RockFallSolver {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for page in (self.chamber.start..=self.chamber.end).rev() {
-            for y in (0..64).rev() {
-                let global_y: u64 = y + page as u64 * 64;
-
-                // if (global_y + 1) % 40 == 0 {
-                //     writeln!(f)?;
-                // }
-
-                // write!(f, "p={} y={:0>5} ", page, global_y)?;
-
-                write!(f, "|")?;
-                for x in 0..7 {
-                    let falling_char = self.falling.as_char(page, x, y, true);
-
-                    if falling_char != '.' {
-                        write!(f, "{}", falling_char)?;
-                    } else {
-                        write!(f, "{}", self.chamber.as_char(page, x, y, false))?;
-                    }
+                    let delta_top = top - old_top;
+                    let delta_counter = shape_counter - old_shape_counter;
+                    let shapes_left = total_shapes - shape_counter;
+                    let repeats = shapes_left / delta_counter;
+                    added += repeats * delta_top;
+                    shape_counter += repeats * delta_counter;
                 }
-                writeln!(f, "|")?;
+
+                cache.insert(key, (shape_counter, top));
+
+                break;
             }
         }
-        //writeln!(f, "+-------+")?;
-
-        Ok(())
-    }
-}
-
-pub fn print_solver_page(solver: &RockFallSolver, page: usize) {
-    let mut rock = Rock {
-        data: VecDeque::new(),
-        end: 0,
-        start: 0,
-        ..Default::default()
-    };
-
-    for x in 0..7 {
-        let index = (page - solver.chamber.start) * 7;
-        rock.data.push_back(solver.chamber.data[index + x])
     }
 
-    let mut display_solver = solver.clone();
-    display_solver.chamber = rock;
-
-    println!("{}", display_solver);
+    top + added
 }
 
 pub fn solve_1(input: &str) -> String {
-    let mut solver = solver(input);
-
-    for _ in 0..2022 {
-        solver.step_rock();
-    }
-
-    let solution = solver.chamber.top();
-
-    solution.to_string()
+    solve(input, 2022).to_string()
 }
 
 pub fn solve_2(input: &str) -> String {
-    let mut solver = solver(input);
-
-    for _ in 0..10000 {
-        solver.step_rock();
-    }
-
-    let solution = solver.chamber.top();
-
-    solution.to_string()
+    solve(input, 1000000000000).to_string()
 }
