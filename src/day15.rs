@@ -256,7 +256,7 @@ pub fn solve_2(input: &str) -> String {
     let zone = ExclusionZone::from(input);
 
     if cfg!(test) {
-        let beacon = zone.find_beacon(0, 0, 20, 20).expect("find beacon");
+        let beacon = zone.math_find_beacon().expect("find beacon");
 
         let tuning_frequency = beacon.0 * 4000000 + beacon.1;
 

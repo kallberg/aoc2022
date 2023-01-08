@@ -2,81 +2,81 @@ use std::collections::{HashMap, HashSet};
 
 #[derive(Clone)]
 pub struct Shape {
-    parts: HashSet<(u64, u64)>,
+    parts: Vec<(u64, u64)>,
     max_y: u64,
 }
 
 impl Shape {
     fn one(y: u64) -> Self {
         let mut shape = Self {
-            parts: HashSet::new(),
+            parts: vec![],
             max_y: y,
         };
 
-        shape.parts.insert((2, y));
-        shape.parts.insert((3, y));
-        shape.parts.insert((4, y));
-        shape.parts.insert((5, y));
+        shape.parts.push((2, y));
+        shape.parts.push((3, y));
+        shape.parts.push((4, y));
+        shape.parts.push((5, y));
 
         shape
     }
 
     fn two(y: u64) -> Self {
         let mut shape = Self {
-            parts: HashSet::new(),
+            parts: vec![],
             max_y: y + 2,
         };
 
-        shape.parts.insert((3, y));
+        shape.parts.push((3, y));
 
-        shape.parts.insert((2, y + 1));
-        shape.parts.insert((3, y + 1));
-        shape.parts.insert((4, y + 1));
+        shape.parts.push((2, y + 1));
+        shape.parts.push((3, y + 1));
+        shape.parts.push((4, y + 1));
 
-        shape.parts.insert((3, y + 2));
+        shape.parts.push((3, y + 2));
 
         shape
     }
 
     fn three(y: u64) -> Self {
         let mut shape = Self {
-            parts: HashSet::new(),
+            parts: vec![],
             max_y: y + 2,
         };
 
-        shape.parts.insert((4, y + 2));
-        shape.parts.insert((4, y + 1));
-        shape.parts.insert((4, y));
-        shape.parts.insert((3, y));
-        shape.parts.insert((2, y));
+        shape.parts.push((4, y + 2));
+        shape.parts.push((4, y + 1));
+        shape.parts.push((4, y));
+        shape.parts.push((3, y));
+        shape.parts.push((2, y));
 
         shape
     }
 
     fn four(y: u64) -> Self {
         let mut shape = Self {
-            parts: HashSet::new(),
+            parts: vec![],
             max_y: y + 3,
         };
 
-        shape.parts.insert((2, y + 3));
-        shape.parts.insert((2, y + 2));
-        shape.parts.insert((2, y + 1));
-        shape.parts.insert((2, y));
+        shape.parts.push((2, y + 3));
+        shape.parts.push((2, y + 2));
+        shape.parts.push((2, y + 1));
+        shape.parts.push((2, y));
 
         shape
     }
 
     fn five(y: u64) -> Self {
         let mut shape = Self {
-            parts: HashSet::new(),
+            parts: vec![],
             max_y: y + 1,
         };
 
-        shape.parts.insert((2, y + 1));
-        shape.parts.insert((3, y + 1));
-        shape.parts.insert((2, y));
-        shape.parts.insert((3, y));
+        shape.parts.push((2, y + 1));
+        shape.parts.push((3, y + 1));
+        shape.parts.push((2, y));
+        shape.parts.push((3, y));
 
         shape
     }
@@ -84,52 +84,51 @@ impl Shape {
     fn apply_jet(&mut self, jet: char) -> bool {
         assert!(jet == '<' || jet == '>');
 
-        let mut new_parts = HashSet::new();
-
-        for (x, y) in &self.parts {
-            let (x, y) = (*x, *y);
-            if jet == '<' {
-                if x > 0 {
-                    new_parts.insert((x - 1, y));
-                } else {
-                    return false;
-                }
-            } else if x < 6 {
-                new_parts.insert((x + 1, y));
-            } else {
-                return false;
-            }
+        if jet == '<' && self.parts.iter().any(|(x, _)| *x == 0) {
+            return false;
         }
 
-        self.parts = new_parts;
+        if jet == '>' && self.parts.iter().any(|(x, _)| *x == 6) {
+            return false;
+        }
+
+        for (x, _) in &mut self.parts {
+            if jet == '<' {
+                *x -= 1;
+            } else {
+                *x += 1;
+            }
+        }
 
         true
     }
 
     fn move_down(&mut self) {
-        let mut new_parts = HashSet::new();
-
-        for (x, y) in &self.parts {
-            let (x, y) = (*x, *y);
-            if y > 0 {
-                new_parts.insert((x, y - 1));
-            } else {
-                return;
-            }
+        for (_, y) in &mut self.parts {
+            *y -= 1;
         }
         self.max_y -= 1;
-        self.parts = new_parts;
     }
 
     fn move_up(&mut self) {
-        let mut new_parts = HashSet::new();
-
-        for (x, y) in &self.parts {
-            let (x, y) = (*x, *y);
-            new_parts.insert((x, y + 1));
+        for (_, y) in &mut self.parts {
+            *y += 1;
         }
         self.max_y += 1;
-        self.parts = new_parts;
+    }
+
+    fn intersects(&self, rocks: &HashSet<(u64, u64)>) -> bool {
+        let mut disjoint = true;
+
+        for part in &self.parts {
+            if rocks.contains(part) {
+                disjoint = false;
+
+                break;
+            }
+        }
+
+        disjoint
     }
 }
 
@@ -201,13 +200,13 @@ pub fn solve(input: &str, total_shapes: u64) -> u64 {
             let copy = shape.clone();
             let moved = shape.apply_jet(jet);
 
-            if moved && !shape.parts.is_disjoint(&rocks_set) {
+            if moved && !shape.intersects(&rocks_set) {
                 shape = copy;
             }
 
             shape.move_down();
 
-            if !shape.parts.is_disjoint(&rocks_set) {
+            if !shape.intersects(&rocks_set) {
                 shape.move_up();
                 for part in shape.parts {
                     if rocks_set.insert(part) {

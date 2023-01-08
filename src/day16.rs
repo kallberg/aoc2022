@@ -233,9 +233,9 @@ impl From<&str> for ValveSystem {
             }
         }
 
-        for identity in 0..distances.len() {
+        (0..distances.len()).for_each(|identity| {
             distances[identity][identity] = Some(0);
-        }
+        });
 
         let distances = floyd_warshall(&distances);
         let distances: Vec<Vec<usize>> = distances
