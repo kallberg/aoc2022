@@ -3,12 +3,14 @@ use std::collections::{HashMap, HashSet};
 #[derive(Clone)]
 pub struct Shape {
     parts: HashSet<(u64, u64)>,
+    max_y: u64,
 }
 
 impl Shape {
     fn one(y: u64) -> Self {
         let mut shape = Self {
             parts: HashSet::new(),
+            max_y: y,
         };
 
         shape.parts.insert((2, y));
@@ -22,6 +24,7 @@ impl Shape {
     fn two(y: u64) -> Self {
         let mut shape = Self {
             parts: HashSet::new(),
+            max_y: y + 2,
         };
 
         shape.parts.insert((3, y));
@@ -38,6 +41,7 @@ impl Shape {
     fn three(y: u64) -> Self {
         let mut shape = Self {
             parts: HashSet::new(),
+            max_y: y + 2,
         };
 
         shape.parts.insert((4, y + 2));
@@ -52,6 +56,7 @@ impl Shape {
     fn four(y: u64) -> Self {
         let mut shape = Self {
             parts: HashSet::new(),
+            max_y: y + 3,
         };
 
         shape.parts.insert((2, y + 3));
@@ -65,6 +70,7 @@ impl Shape {
     fn five(y: u64) -> Self {
         let mut shape = Self {
             parts: HashSet::new(),
+            max_y: y + 1,
         };
 
         shape.parts.insert((2, y + 1));
@@ -111,7 +117,7 @@ impl Shape {
                 return;
             }
         }
-
+        self.max_y -= 1;
         self.parts = new_parts;
     }
 
@@ -122,24 +128,27 @@ impl Shape {
             let (x, y) = (*x, *y);
             new_parts.insert((x, y + 1));
         }
-
+        self.max_y += 1;
         self.parts = new_parts;
     }
 }
 
-fn fingerprint<'a, R>(rocks: R, top: u64, depth: u64) -> Vec<(u64, u64)>
+fn fingerprint<'a, R>(rocks: R, top: u64, depth: u64) -> [u64; 7]
 where
     R: IntoIterator<Item = &'a (u64, u64)>,
 {
-    let mut fingerprint = vec![];
+    let mut fingerprint = [0u64; 7];
 
     for (x, y) in rocks {
-        if top - *y <= depth {
-            fingerprint.push((*x, top - *y));
-        }
-    }
+        let y = top - *y;
+        let x = *x;
 
-    fingerprint.sort();
+        if y > depth {
+            continue;
+        }
+
+        fingerprint[x as usize] |= 1 << y;
+    }
 
     fingerprint
 }
@@ -151,16 +160,20 @@ pub fn solve(input: &str, total_shapes: u64) -> u64 {
     let mut jet_counter = 0u64;
     let mut top = 0;
     let mut added = 0;
-    let mut rocks: HashSet<(u64, u64)> = HashSet::new();
-    rocks.insert((0, 0));
-    rocks.insert((1, 0));
-    rocks.insert((2, 0));
-    rocks.insert((3, 0));
-    rocks.insert((4, 0));
-    rocks.insert((5, 0));
-    rocks.insert((6, 0));
+    let mut rocks_set: HashSet<(u64, u64)> = HashSet::new();
+    let mut rocks_vec: Vec<(u64, u64)> = vec![];
 
-    type Key = (usize, usize, Vec<(u64, u64)>);
+    rocks_set.insert((0, 0));
+    rocks_set.insert((1, 0));
+    rocks_set.insert((2, 0));
+    rocks_set.insert((3, 0));
+    rocks_set.insert((4, 0));
+    rocks_set.insert((5, 0));
+    rocks_set.insert((6, 0));
+
+    rocks_vec.extend(rocks_set.iter());
+
+    type Key = (usize, usize, [u64; 7]);
 
     let mut cache = HashMap::<Key, (u64, u64)>::new();
 
@@ -188,21 +201,27 @@ pub fn solve(input: &str, total_shapes: u64) -> u64 {
             let copy = shape.clone();
             let moved = shape.apply_jet(jet);
 
-            if moved && !shape.parts.is_disjoint(&rocks) {
+            if moved && !shape.parts.is_disjoint(&rocks_set) {
                 shape = copy;
             }
 
             shape.move_down();
 
-            if !shape.parts.is_disjoint(&rocks) {
+            if !shape.parts.is_disjoint(&rocks_set) {
                 shape.move_up();
-                rocks.extend(shape.parts);
+                for part in shape.parts {
+                    if rocks_set.insert(part) {
+                        rocks_vec.push(part);
+                    }
+                }
 
-                let max_rock = rocks.iter().map(|(_, y)| *y).max();
+                top = top.max(shape.max_y);
 
-                top = max_rock.unwrap();
-
-                let key: Key = (jet_index, shape_index, fingerprint(&rocks, top, 40));
+                let key: Key = (
+                    jet_index,
+                    shape_index,
+                    fingerprint(rocks_vec.iter(), top, 40),
+                );
 
                 if let Some(cache_hit) = cache.get(&key) {
                     let (old_shape_counter, old_top) = *cache_hit;
