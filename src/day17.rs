@@ -644,20 +644,7 @@ pub fn print_solver_page(solver: &RockFallSolver, page: usize) {
     println!("{}", display_solver);
 }
 
-pub fn test_rock_fall() {
-    let mut rock = Rock::piece_three(2, 70);
-
-    while rock.fall() {
-        println!("{}", rock);
-    }
-}
-
 pub fn solve_1(input: &str) -> String {
-    let rock = Rock::piece_two(2, 5);
-
-    println!("{}", rock);
-    let rock_data = rock.read(2, 0, 20);
-
     let mut solver = solver(input);
 
     for _ in 0..2022 {
@@ -665,9 +652,6 @@ pub fn solve_1(input: &str) -> String {
     }
 
     let solution = solver.chamber.top();
-
-    println!("{}", solver.max_fall);
-    println!("{}", solver);
 
     solution.to_string()
 }
@@ -681,20 +665,5 @@ pub fn solve_2(input: &str) -> String {
 
     let solution = solver.chamber.top();
 
-    println!("{}", solver.max_fall);
-    println!("{}", solver);
-
     solution.to_string()
-
-    // return "Ok".into();
-
-    // let mut solver = solver(input);
-
-    // for _ in 0u64..1000000000000 {
-    //     solver.step_rock();
-    // }
-
-    // let solution = solver.chamber.top();
-
-    // solution.to_string()
 }
