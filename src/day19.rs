@@ -178,7 +178,7 @@ impl State {
             time -= 1;
 
             if obsidian >= geode_cost.obsidian {
-                geodes += time;
+                geodes = geodes.checked_add(time).unwrap_or(u8::MAX);
                 obsidian -= geode_cost.obsidian;
                 obsidian += obsidian_robots;
                 continue;
