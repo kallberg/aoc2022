@@ -1,168 +1,56 @@
-use std::{cmp::min, collections::HashMap, hash::Hash};
-
-type SolutionCache = HashMap<SolverInput, usize>;
+use std::collections::HashMap;
 
 #[derive(Clone)]
-pub struct Valve {
-    pub id: usize,
-    pub name: String,
-    pub flow_rate: usize,
-}
-
-#[derive(Clone)]
-pub struct ValveSystem {
-    pub size: usize,
-    pub names: Vec<String>,
-    pub flow_rates: Vec<usize>,
-    pub distances: Vec<Vec<usize>>,
-}
-
-#[derive(PartialEq, Eq, Hash, Clone)]
-pub struct SolverInput {
-    pub position: usize,
-    pub time_left: usize,
-    pub visited_mask: u64,
-}
-
-pub struct ValveSystemSolver {
-    pub system: ValveSystem,
-    pub cache: SolutionCache,
-}
-
-impl ValveSystemSolver {
-    fn solve_by_input(&mut self, input: SolverInput) -> usize {
-        if let Some(cached) = self.cache.get(&input) {
-            return *cached;
-        }
-
-        let mut best_score = 0;
-
-        for index in 0..self.system.size {
-            let visit_bit = 1u64 << index;
-
-            if input.visited_mask & visit_bit != 0 {
-                continue;
-            }
-
-            let flow_rate = self.system.flow_rates[index];
-
-            if flow_rate == 0 {
-                continue;
-            }
-
-            let distance = self.system.distances[input.position][index];
-            let time_spent = distance + 1;
-
-            if time_spent >= input.time_left {
-                continue;
-            }
-
-            let time_left = input.time_left - time_spent;
-
-            let mut score = flow_rate * time_left;
-
-            if time_left > 2 {
-                let mut solver_next = input.clone();
-
-                solver_next.visited_mask |= visit_bit;
-                solver_next.time_left = time_left;
-                solver_next.position = index;
-
-                score += self.solve_by_input(solver_next);
-            }
-
-            if score > best_score {
-                best_score = score;
-            }
-        }
-
-        self.cache.insert(input, best_score);
-
-        best_score
-    }
-
-    pub fn solve(&mut self) -> usize {
-        self.system = self.system.as_simplified();
-
-        self.solve_by_input(SolverInput {
-            position: self.system.start(),
-            time_left: 30,
-            visited_mask: 0,
-        })
-    }
-
-    fn elephant_solve_by_input(&mut self, input: SolverInput) -> usize {
-        let mask = (1u64 << self.system.size) - 1;
-
-        let halfway = (mask + 1) / 2;
-
-        let mut best_score = 0;
-
-        for index in 0..halfway {
-            let mut regular = input.clone();
-            let mut elephant = input.clone();
-
-            elephant.visited_mask = mask ^ index;
-            regular.visited_mask = index;
-
-            let score = self.solve_by_input(regular) + self.solve_by_input(elephant);
-
-            if score > best_score {
-                best_score = score;
-            }
-        }
-
-        best_score
-    }
-
-    pub fn elephant_solve(&mut self) -> usize {
-        self.system = self.system.as_simplified();
-
-        self.elephant_solve_by_input(SolverInput {
-            position: self.system.start(),
-            time_left: 26,
-            visited_mask: 0,
-        })
-    }
+struct ValveSystem {
+    size: u8,
+    names: Vec<String>,
+    flow_rates: Vec<u8>,
+    flow_rates_sorted: Vec<u8>,
+    distances: Vec<Vec<u8>>,
 }
 
 impl ValveSystem {
-    fn as_simplified(&self) -> Self {
+    fn trim(&mut self) {
         let start = self.start();
 
-        let mut output = Self {
+        let mut trimmed = Self {
             distances: vec![],
             names: vec![],
             size: 0,
             flow_rates: vec![],
+            flow_rates_sorted: vec![],
         };
 
-        for index in 0..self.size {
-            if self.flow_rates[index] == 0 && index != start {
+        for index in 0..self.size as usize {
+            if self.flow_rates[index] == 0 && index != start as usize {
                 continue;
             }
 
-            output.names.push(self.names[index].clone());
-            output.flow_rates.push(self.flow_rates[index]);
-            output.size += 1;
+            trimmed.names.push(self.names[index].clone());
+            trimmed.flow_rates.push(self.flow_rates[index]);
+            trimmed.size += 1;
 
             let mut distance_row = vec![];
 
-            for to in 0..self.size {
-                if self.flow_rates[to] == 0 && to != start {
+            for to in 0..self.size as usize {
+                if self.flow_rates[to] == 0 && to != start as usize {
                     continue;
                 }
 
                 distance_row.push(self.distances[index][to])
             }
 
-            output.distances.push(distance_row);
+            trimmed.distances.push(distance_row);
         }
 
-        output
+        self.distances = trimmed.distances;
+        self.names = trimmed.names;
+        self.size = trimmed.size;
+        self.flow_rates = trimmed.flow_rates;
+        self.flow_rates_sorted = trimmed.flow_rates_sorted;
     }
 
-    fn start(&self) -> usize {
+    fn start(&self) -> u8 {
         let mut start = 0;
 
         let start_name = "AA".to_string();
@@ -179,6 +67,32 @@ impl ValveSystem {
     }
 }
 
+#[derive(Clone, PartialEq, Eq, Hash)]
+struct State {
+    position: u8,
+    visited_mask: u64,
+    time_remaining: u8,
+    pressure: u16,
+}
+
+#[derive(PartialEq, Eq)]
+struct BoundedState {
+    state: State,
+    bound: u16,
+}
+
+impl Ord for BoundedState {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.bound.cmp(&other.bound)
+    }
+}
+
+impl PartialOrd for BoundedState {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 impl From<&str> for ValveSystem {
     fn from(value: &str) -> Self {
         let mut output = Self {
@@ -186,6 +100,7 @@ impl From<&str> for ValveSystem {
             names: vec![],
             distances: vec![],
             flow_rates: vec![],
+            flow_rates_sorted: vec![],
         };
 
         let mut neighbors = vec![];
@@ -216,7 +131,7 @@ impl From<&str> for ValveSystem {
             neighbors.push(connections);
         });
 
-        let mut distances = vec![vec![None; output.size]; output.size];
+        let mut distances = vec![vec![None; output.size as usize]; output.size as usize];
 
         for (index, neighbors) in neighbors.iter().cloned().enumerate() {
             for neighbor in neighbors {
@@ -229,7 +144,7 @@ impl From<&str> for ValveSystem {
                         continue;
                     };
 
-                distances[index][valve_id] = Some(1usize);
+                distances[index][valve_id] = Some(1);
             }
         }
 
@@ -238,7 +153,7 @@ impl From<&str> for ValveSystem {
         });
 
         let distances = floyd_warshall(&distances);
-        let distances: Vec<Vec<usize>> = distances
+        let distances: Vec<Vec<u8>> = distances
             .iter()
             .map(|row| {
                 row.iter()
@@ -249,11 +164,16 @@ impl From<&str> for ValveSystem {
 
         output.distances = distances;
 
+        output.trim();
+
+        output.flow_rates_sorted = output.flow_rates.clone();
+        output.flow_rates_sorted.sort();
+        output.flow_rates_sorted.reverse();
+
         output
     }
 }
-
-fn floyd_warshall(graph: &Vec<Vec<Option<usize>>>) -> Vec<Vec<Option<usize>>> {
+fn floyd_warshall(graph: &Vec<Vec<Option<u8>>>) -> Vec<Vec<Option<u8>>> {
     let n = graph.len();
     let mut distance = graph.clone();
 
@@ -262,7 +182,7 @@ fn floyd_warshall(graph: &Vec<Vec<Option<usize>>>) -> Vec<Vec<Option<usize>>> {
             for j in 0..n {
                 if let (Some(x), Some(y)) = (distance[i][k], distance[k][j]) {
                     if let Some(z) = distance[i][j] {
-                        distance[i][j] = Some(min(z, x + y));
+                        distance[i][j] = Some(std::cmp::min(z, x + y));
                     } else {
                         distance[i][j] = Some(x + y);
                     }
@@ -274,19 +194,120 @@ fn floyd_warshall(graph: &Vec<Vec<Option<usize>>>) -> Vec<Vec<Option<usize>>> {
     distance
 }
 
+impl State {
+    fn branch<'a>(&'a self, system: &'a ValveSystem) -> impl IntoIterator<Item = State> + 'a {
+        (0..system.size as usize).filter_map(move |index| {
+            let visit_bit = 1u64 << index;
+
+            if self.visited_mask & visit_bit != 0 {
+                return None;
+            }
+
+            let flow_rate = system.flow_rates[index];
+
+            if flow_rate == 0 {
+                return None;
+            }
+
+            let distance = system.distances[self.position as usize][index];
+            let time_spent = distance + 1;
+
+            if time_spent >= self.time_remaining {
+                return None;
+            }
+
+            let time_remaining = self.time_remaining - time_spent;
+
+            let mut branch = self.clone();
+
+            branch.visited_mask |= visit_bit;
+            branch.time_remaining = time_remaining;
+            branch.position = index as u8;
+            branch.pressure += flow_rate as u16 * time_remaining as u16;
+
+            Some(branch)
+        })
+    }
+
+    fn bound(&self, system: &ValveSystem) -> u16 {
+        self.pressure
+            + (0..=self.time_remaining)
+                .rev()
+                .step_by(2)
+                .skip(1)
+                .zip(system.flow_rates_sorted.clone())
+                .map(|(time_left, flow_rate)| flow_rate as u16 * time_left as u16)
+                .sum::<u16>()
+    }
+
+    fn branch_and_bound(&self, system: &ValveSystem, pressure: &mut u16) {
+        *pressure = self.pressure.max(*pressure);
+
+        for branch in self.branch(system) {
+            let upper_bound = branch.bound(system);
+
+            if upper_bound <= *pressure {
+                continue;
+            }
+
+            branch.branch_and_bound(system, pressure);
+        }
+    }
+}
+
 pub fn solve_1(input: &str) -> String {
-    let mut solver = ValveSystemSolver {
-        cache: HashMap::new(),
-        system: ValveSystem::from(input),
+    let system = ValveSystem::from(input);
+
+    let state = State {
+        position: system.start(),
+        pressure: 0,
+        time_remaining: 30,
+        visited_mask: 0,
     };
 
-    solver.solve().to_string()
+    let mut pressure = 0;
+
+    state.branch_and_bound(&system, &mut pressure);
+
+    pressure.to_string()
 }
 pub fn solve_2(input: &str) -> String {
-    let mut solver = ValveSystemSolver {
-        cache: HashMap::new(),
-        system: ValveSystem::from(input),
-    };
+    let system = ValveSystem::from(input);
 
-    solver.elephant_solve().to_string()
+    let mask = (1u64 << system.size) - 1;
+
+    let halfway = (mask + 1) / 2;
+
+    let mut best = 0;
+
+    for index in 0..halfway {
+        let visited = index;
+        let elephant_visited = index ^ mask;
+
+        let state = State {
+            position: system.start(),
+            pressure: 0,
+            time_remaining: 26,
+            visited_mask: visited,
+        };
+
+        let elephant = State {
+            position: system.start(),
+            pressure: 0,
+            time_remaining: 26,
+            visited_mask: elephant_visited,
+        };
+
+        let mut pressure = 0;
+
+        state.branch_and_bound(&system, &mut pressure);
+
+        let mut elephant_pressure = 0;
+
+        elephant.branch_and_bound(&system, &mut elephant_pressure);
+
+        best = best.max(pressure + elephant_pressure)
+    }
+
+    best.to_string()
 }
