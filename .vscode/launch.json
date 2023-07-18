@@ -248,6 +248,67 @@
         "day19_eq_example",
         "--exact",
       ],
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Day 20 - Part 1",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=aoc2022",
+          "--package=aoc2022"
+        ],
+        "filter": {
+          "name": "aoc2022",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "DAY": "20",
+        "PART": "1",
+      }
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Day 20 - Part 2",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=aoc2022",
+          "--package=aoc2022"
+        ],
+        "filter": {
+          "name": "aoc2022",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "DAY": "20",
+        "PART": "2"
+      }
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Day 20 - test",
+      "cargo": {
+        "args": [
+          "test",
+          "--no-run",
+        ]
+      },
+      "args": [
+        "--nocapture",
+        "--",
+        "day20_eq_example",
+        "--exact",
+      ],
     }
   ]
 }
