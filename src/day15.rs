@@ -3,8 +3,6 @@ use std::{
     collections::HashSet,
 };
 
-use rayon::prelude::{IntoParallelIterator, ParallelIterator};
-
 pub struct Sensor {
     pub x: isize,
     pub y: isize,
@@ -13,7 +11,7 @@ pub struct Sensor {
 
 impl Sensor {
     pub fn x_range(&self, y: isize) -> Option<(isize, isize)> {
-        let diff_y = (self.y - y).unsigned_abs() as usize;
+        let diff_y = (self.y - y).unsigned_abs();
 
         if diff_y >= self.reach {
             return None;
@@ -45,14 +43,14 @@ impl ExclusionZone {
         to_x: isize,
         to_y: isize,
     ) -> Option<(isize, isize)> {
-        (from_y..=to_y).into_par_iter().find_map_any(|at_y| {
+        (from_y..=to_y).find_map(|at_y| {
             let mut ranges: Vec<(isize, isize)> = self
                 .sensors
                 .iter()
                 .filter_map(|sensor| {
                     let Some(mut reachable_range) = sensor.x_range(at_y) else {
-                    return None
-                };
+                        return None
+                    };
 
                     reachable_range.0 = reachable_range.0.clamp(from_x, to_x);
                     reachable_range.1 = reachable_range.1.clamp(from_x, to_x);
@@ -255,22 +253,13 @@ pub fn solve_1(input: &str) -> String {
 pub fn solve_2(input: &str) -> String {
     let zone = ExclusionZone::from(input);
 
-    if cfg!(test) {
-        let beacon = zone.math_find_beacon().expect("find beacon");
+    let beacon = zone
+        .find_beacon(0, 0, 4000000, 4000000)
+        .expect("find beacon");
 
-        let tuning_frequency = beacon.0 * 4000000 + beacon.1;
+    let tuning_frequency = beacon.0 * 4000000 + beacon.1;
 
-        tuning_frequency.to_string()
-    } else {
-        let beacon = zone
-            .find_beacon(0, 0, 4000000, 4000000)
-            .expect("find beacon");
-        //let beacon = zone.math_find_beacon().expect("find beacon");
-
-        let tuning_frequency = beacon.0 * 4000000 + beacon.1;
-
-        tuning_frequency.to_string()
-    }
+    tuning_frequency.to_string()
 }
 
 #[test]
