@@ -74,67 +74,6 @@ impl ExclusionZone {
         })
     }
 
-    pub fn math_find_beacon(&self) -> Option<(isize, isize)> {
-        let mut positive_lines = vec![];
-        let mut negative_lines = vec![];
-
-        for sensor in &self.sensors {
-            positive_lines.push(sensor.x - sensor.y - sensor.reach as isize);
-            positive_lines.push(sensor.x - sensor.y + sensor.reach as isize);
-            negative_lines.push(sensor.x + sensor.y - sensor.reach as isize);
-            negative_lines.push(sensor.x + sensor.y + sensor.reach as isize);
-        }
-
-        let mut range = 0..self.sensors.len() * 2;
-
-        let Some(positive_line) = range.find_map(|i| {
-            let positive_line = ((i + 1)..self.sensors.len() * 2).find_map(|j| {
-                let a = positive_lines[i];
-                let b = positive_lines[j];
-
-                if (a - b).abs() == 2 {
-                    return Some(a.min(b) + 1)
-                }
-                None
-            });
-
-            let Some(positive) = positive_line else {
-                return None;
-            };
-
-            Some(positive)
-
-        }) else {
-            return None;
-        };
-
-        let Some(negative_line) = range.find_map(|i| {
-            let negative_line = ((i + 1)..self.sensors.len() * 2).find_map(|j| {
-                let a = negative_lines[i];
-                let b = negative_lines[j];
-
-                if (a - b).abs() == 2 {
-                    return Some(a.min(b) + 1)
-                }
-                None
-            });
-
-            let Some(negative) = negative_line else {
-                return None;
-            };
-
-            Some(negative)
-
-        }) else {
-            return None;
-        };
-
-        Some((
-            (positive_line + negative_line) / 2,
-            (negative_line - positive_line) / 2,
-        ))
-    }
-
     pub fn exclusion_count(&self, at_y: isize) -> usize {
         let mut ranges = vec![];
 

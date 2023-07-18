@@ -151,9 +151,9 @@ pub fn parse_monkeys(input: &str) -> Vec<Monkey> {
     let lines: Vec<&str> = input.lines().collect();
     let monkey_lines = lines.chunks(7);
 
-    let monkey_strs = monkey_lines.map(|lines| lines.join("\n"));
+    let monkey_strings = monkey_lines.map(|lines| lines.join("\n"));
 
-    monkey_strs
+    monkey_strings
         .map(|monkey_string| Monkey::from(monkey_string.as_str()))
         .collect()
 }

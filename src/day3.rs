@@ -8,7 +8,7 @@ fn find_error(left: &str, right: &str) -> char {
     let l_set: HashSet<char> = HashSet::from_iter(left.chars());
     let r_set: HashSet<char> = HashSet::from_iter(right.chars());
 
-    let err = l_set.intersection(&r_set).into_iter().next();
+    let err = l_set.intersection(&r_set).next();
 
     err.cloned().expect("find backpack error")
 }
@@ -34,12 +34,12 @@ pub fn solve_1(input: &str) -> String {
 }
 
 pub fn solve_2(input: &str) -> String {
-    let charsets: Vec<HashSet<char>> = input
+    let char_sets: Vec<HashSet<char>> = input
         .lines()
         .map(|line| HashSet::from_iter(line.chars()))
         .collect();
 
-    let groups = charsets.chunks_exact(3);
+    let groups = char_sets.chunks_exact(3);
 
     groups
         .map(|groups| match groups {

@@ -44,8 +44,8 @@ impl Directory {
 
         for child in &self.children {
             output.push(child.clone());
-            let mut child_descendands = child.descendants();
-            output.append(&mut child_descendands);
+            let mut child_descendants = child.descendants();
+            output.append(&mut child_descendants);
         }
 
         output
@@ -156,10 +156,10 @@ pub fn directories_within_limit(size_limit: usize, root: &Directory) -> Vec<(Pat
     }
 
     for descendant in root.descendants() {
-        let descendand_size = descendant.size(&mut cache);
+        let descendant_size = descendant.size(&mut cache);
 
-        if descendand_size <= size_limit {
-            output.push((descendant.path.clone(), descendand_size));
+        if descendant_size <= size_limit {
+            output.push((descendant.path.clone(), descendant_size));
         }
     }
 

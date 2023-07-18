@@ -110,7 +110,7 @@ pub enum ViewDirection {
 }
 
 impl TreeGrid {
-    pub fn view_distanece(&self, position: &Coord, direction: ViewDirection) -> usize {
+    pub fn view_distance(&self, position: &Coord, direction: ViewDirection) -> usize {
         if position.x.eq(&0)
             || position.y.eq(&0)
             || (position.x + 1).ge(&self.width)
@@ -151,10 +151,10 @@ impl TreeGrid {
     }
 
     pub fn scenic_score(&self, position: &Coord) -> usize {
-        self.view_distanece(position, ViewDirection::L)
-            .mul(self.view_distanece(position, ViewDirection::R))
-            .mul(self.view_distanece(position, ViewDirection::U))
-            .mul(self.view_distanece(position, ViewDirection::D))
+        self.view_distance(position, ViewDirection::L)
+            .mul(self.view_distance(position, ViewDirection::R))
+            .mul(self.view_distance(position, ViewDirection::U))
+            .mul(self.view_distance(position, ViewDirection::D))
     }
 }
 

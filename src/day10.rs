@@ -5,14 +5,14 @@ use crate::extra::visualize;
 #[derive(Debug, Clone)]
 pub enum Instruction {
     Noop,
-    Addx(i64),
+    AddX(i64),
 }
 
 impl Instruction {
     pub fn execute(&self, cpu: &mut Cpu) -> bool {
         match self {
             Instruction::Noop => true,
-            Instruction::Addx(x) => {
+            Instruction::AddX(x) => {
                 if cpu.instruction_cycle == 1 {
                     cpu.register_x += x;
                     true
@@ -67,7 +67,7 @@ impl From<&str> for Instruction {
         if line.starts_with("addx") {
             let x_str = line.strip_prefix("addx ").unwrap();
             let x: i64 = x_str.parse().unwrap();
-            return Self::Addx(x);
+            return Self::AddX(x);
         }
 
         unreachable!()

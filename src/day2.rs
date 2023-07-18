@@ -2,7 +2,7 @@
 pub enum Kind {
     Rock,
     Paper,
-    Scissiors,
+    Scissors,
 }
 
 #[derive(Clone)]
@@ -16,10 +16,10 @@ impl From<&str> for Kind {
         match value {
             "A" => Kind::Rock,
             "B" => Kind::Paper,
-            "C" => Kind::Scissiors,
+            "C" => Kind::Scissors,
             "X" => Kind::Rock,
             "Y" => Kind::Paper,
-            "Z" => Kind::Scissiors,
+            "Z" => Kind::Scissors,
             _ => unreachable!(),
         }
     }
@@ -44,13 +44,13 @@ impl Match {
         match (&self.player_one, &self.player_two) {
             (Kind::Rock, Kind::Rock) => 3 + 1,
             (Kind::Rock, Kind::Paper) => 1,
-            (Kind::Rock, Kind::Scissiors) => 6 + 1,
+            (Kind::Rock, Kind::Scissors) => 6 + 1,
             (Kind::Paper, Kind::Rock) => 6 + 2,
             (Kind::Paper, Kind::Paper) => 3 + 2,
-            (Kind::Paper, Kind::Scissiors) => 2,
-            (Kind::Scissiors, Kind::Rock) => 3,
-            (Kind::Scissiors, Kind::Paper) => 6 + 3,
-            (Kind::Scissiors, Kind::Scissiors) => 3 + 3,
+            (Kind::Paper, Kind::Scissors) => 2,
+            (Kind::Scissors, Kind::Rock) => 3,
+            (Kind::Scissors, Kind::Paper) => 6 + 3,
+            (Kind::Scissors, Kind::Scissors) => 3 + 3,
         }
     }
 }
@@ -75,7 +75,7 @@ impl From<&Kind> for Outcome {
         match value {
             Kind::Rock => Outcome::Loss,
             Kind::Paper => Outcome::Draw,
-            Kind::Scissiors => Outcome::Win,
+            Kind::Scissors => Outcome::Win,
         }
     }
 }
@@ -84,11 +84,11 @@ impl Kind {
     pub fn move_with_outcome(&self, outcome: Outcome) -> Kind {
         match (self, outcome) {
             (Kind::Rock, Outcome::Win) => Kind::Paper,
-            (Kind::Rock, Outcome::Loss) => Kind::Scissiors,
-            (Kind::Paper, Outcome::Win) => Kind::Scissiors,
+            (Kind::Rock, Outcome::Loss) => Kind::Scissors,
+            (Kind::Paper, Outcome::Win) => Kind::Scissors,
             (Kind::Paper, Outcome::Loss) => Kind::Rock,
-            (Kind::Scissiors, Outcome::Win) => Kind::Rock,
-            (Kind::Scissiors, Outcome::Loss) => Kind::Paper,
+            (Kind::Scissors, Outcome::Win) => Kind::Rock,
+            (Kind::Scissors, Outcome::Loss) => Kind::Paper,
             (x, Outcome::Draw) => x.clone(),
         }
     }
@@ -98,12 +98,11 @@ pub fn solve_2(input: &str) -> String {
     input
         .lines()
         .map(Match::from)
-        .map(|m| {
-            let mut adjusted = m.clone();
+        .map(|mut m| {
             let instruction = Outcome::from(&m.player_one);
             let new_move = m.player_two.move_with_outcome(instruction);
-            adjusted.player_one = new_move;
-            adjusted.score()
+            m.player_one = new_move;
+            m.score()
         })
         .sum::<u64>()
         .to_string()

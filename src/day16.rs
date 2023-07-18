@@ -188,7 +188,7 @@ impl From<&str> for ValveSystem {
             flow_rates: vec![],
         };
 
-        let mut neighbours = vec![];
+        let mut neighbors = vec![];
 
         value.lines().for_each(|line| {
             let line = line.strip_prefix("Valve ").unwrap();
@@ -213,19 +213,19 @@ impl From<&str> for ValveSystem {
             output.flow_rates.push(flow_rate);
             output.size += 1;
 
-            neighbours.push(connections);
+            neighbors.push(connections);
         });
 
         let mut distances = vec![vec![None; output.size]; output.size];
 
-        for (index, neighbours) in neighbours.iter().cloned().enumerate() {
-            for neighbour in neighbours {
+        for (index, neighbors) in neighbors.iter().cloned().enumerate() {
+            for neighbor in neighbors {
                 let Some((valve_id, _)) = output
                     .names
                     .clone()
                     .into_iter()
                     .enumerate()
-                    .find(|(_, name)| neighbour.eq(name)) else {
+                    .find(|(_, name)| neighbor.eq(name)) else {
                         continue;
                     };
 

@@ -106,7 +106,7 @@ fn bounds(cubes: &Vec<Position>) -> Position {
 
 pub fn fill_water(cubes: &Vec<Position>, start: Position) -> Vec<Position> {
     let mut filled = vec![];
-    let bounds = bounds(&cubes);
+    let bounds = bounds(cubes);
 
     let max_y = bounds.x + 1;
     let max_x = bounds.y + 1;

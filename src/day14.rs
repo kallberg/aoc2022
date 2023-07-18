@@ -81,7 +81,7 @@ impl ScanPath {
                 (true, true) => panic!("scanner malfunction, duplicate path registered"),
                 (true, false) => repeat(left_x).zip(range_y).collect(),
                 (false, true) => (range_x).zip(repeat(left_y)).collect(),
-                (false, false) => panic!("scanner malfunction, diagnoal path registered"),
+                (false, false) => panic!("scanner malfunction, diagonal path registered"),
             };
 
             output.append(&mut points);
@@ -129,8 +129,8 @@ impl From<&Scan> for Simulation {
 
 impl From<&str> for ScanPath {
     fn from(input: &str) -> Self {
-        let coord_strs = input.split(" -> ");
-        let coords: Vec<(i64, i64)> = coord_strs
+        let coord_strings = input.split(" -> ");
+        let coords: Vec<(i64, i64)> = coord_strings
             .filter_map(|coord_str| {
                 coord_str
                     .split_once(',')
