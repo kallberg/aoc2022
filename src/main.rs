@@ -18,6 +18,7 @@ mod day18;
 mod day19;
 mod day2;
 mod day20;
+mod day21;
 mod day3;
 mod day4;
 mod day5;
@@ -73,6 +74,16 @@ fn main() {
         include_str!("../input/day19.txt"),
         include_str!("../input/day20.txt"),
         include_str!("../input/day20.txt"),
+        include_str!("../input/day21.txt"),
+        include_str!("../input/day21.txt"),
+        include_str!("../input/day22.txt"),
+        include_str!("../input/day22.txt"),
+        include_str!("../input/day23.txt"),
+        include_str!("../input/day23.txt"),
+        include_str!("../input/day24.txt"),
+        include_str!("../input/day24.txt"),
+        include_str!("../input/day25.txt"),
+        include_str!("../input/day25.txt"),
     ]
     .into_iter()
     .enumerate()
@@ -141,6 +152,8 @@ fn main() {
                 (19, 2) => day19::solve_2(input),
                 (20, 1) => day20::solve_1(input),
                 (20, 2) => day20::solve_2(input),
+                (21, 1) => day21::solve_1(input),
+                (21, 2) => day21::solve_2(input),
                 _ => unreachable!(),
             };
 
@@ -410,5 +423,15 @@ mod tests {
 
         assert_eq!(solve_1(input), "3");
         assert_eq!(solve_2(input), "1623178306")
+    }
+
+    #[test]
+    fn day21_eq_example() {
+        use crate::day21::{solve_1, solve_2};
+
+        let input = include_str!("../example_input/day21.txt");
+
+        assert_eq!(solve_1(input), "152");
+        assert_eq!(solve_2(input), "301")
     }
 }
